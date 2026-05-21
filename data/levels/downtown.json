@@ -1,0 +1,27 @@
+{
+  "id": "downtown",
+  "name": "Big Enough",
+  "width": 90,
+  "depth": 90,
+  "playerStart": { "x": -40, "z": -40 },
+  "minSizeClass": "huge",
+  "growthFactor": 0.08,
+  "targetMass": 300,
+  "threeStarMass": 350,
+  "threeStarTimeSec": 360,
+  "winProp": "skyscraper",
+  "props": [
+    { "type": "car", "x": -35, "z": -35 }, { "type": "car", "x": -30, "z": -30 }, { "type": "car", "x": -25, "z": -35 },
+    { "type": "bus", "x": -20, "z": -25 }, { "type": "bus", "x": -15, "z": -30 },
+    { "type": "office_building", "x": -10, "z": -15 }, { "type": "office_building", "x": 0, "z": -20 },
+    { "type": "car", "x": 5, "z": -25 }, { "type": "car", "x": 10, "z": -15 },
+    { "type": "office_building", "x": 15, "z": -10 }, { "type": "office_building", "x": -5, "z": -5 },
+    { "type": "bus", "x": 20, "z": -20 }, { "type": "bus", "x": -25, "z": -10 },
+    { "type": "office_building", "x": 10, "z": 0 }, { "type": "office_building", "x": -15, "z": 5 },
+    { "type": "car", "x": 25, "z": 5 }, { "type": "car", "x": -10, "z": 15 },
+    { "type": "office_building", "x": 5, "z": 15 }, { "type": "office_building", "x": 20, "z": 15 },
+    { "type": "bus", "x": -20, "z": 20 }, { "type": "car", "x": 15, "z": 25 },
+    { "type": "office_building", "x": -5, "z": 25 }, { "type": "office_building", "x": 25, "z": -5 },
+    { "type": "skyscraper", "x": 0, "z": 0 }
+  ]
+}

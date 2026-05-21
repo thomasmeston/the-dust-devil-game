@@ -1,0 +1,25 @@
+{
+  "id": "mountain",
+  "name": "Upward Spiral",
+  "width": 70,
+  "depth": 90,
+  "playerStart": { "x": 0, "z": -35 },
+  "minSizeClass": "small",
+  "growthFactor": 0.14,
+  "targetMass": 40,
+  "threeStarMass": 55,
+  "threeStarTimeSec": 240,
+  "exitPosition": { "x": 0, "z": 38 },
+  "props": [
+    { "type": "pebble", "x": 2, "z": -30 }, { "type": "pebble", "x": -3, "z": -28 }, { "type": "pebble", "x": 4, "z": -25 },
+    { "type": "rock_small", "x": -6, "z": -22 }, { "type": "rock_small", "x": 5, "z": -20 }, { "type": "rock_small", "x": -4, "z": -15 },
+    { "type": "pine_sapling", "x": 8, "z": -18 }, { "type": "pine_sapling", "x": -9, "z": -12 }, { "type": "pine_sapling", "x": 6, "z": -8 },
+    { "type": "pine_sapling", "x": -7, "z": -5 }, { "type": "pine_sapling", "x": 10, "z": 0 },
+    { "type": "camping_gear", "x": -5, "z": 2 }, { "type": "camping_gear", "x": 7, "z": 5 },
+    { "type": "boulder", "x": -8, "z": 8 }, { "type": "boulder", "x": 9, "z": 12 }, { "type": "boulder", "x": -6, "z": 18 },
+    { "type": "goat", "x": 5, "z": -10 }, { "type": "goat", "x": -8, "z": 15 },
+    { "type": "pickup_truck", "x": 0, "z": 28 },
+    { "type": "rock_small", "x": 12, "z": 20 }, { "type": "rock_small", "x": -11, "z": 25 },
+    { "type": "boulder", "x": 14, "z": 32 }, { "type": "pine_sapling", "x": -12, "z": 30 }
+  ]
+}

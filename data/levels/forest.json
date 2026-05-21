@@ -1,0 +1,26 @@
+{
+  "id": "forest",
+  "name": "Rustle & Hum",
+  "width": 75,
+  "depth": 75,
+  "playerStart": { "x": -30, "z": 0 },
+  "minSizeClass": "medium",
+  "growthFactor": 0.12,
+  "targetMass": 80,
+  "threeStarMass": 105,
+  "threeStarTimeSec": 300,
+  "enableBoost": true,
+  "exitPosition": { "x": 32, "z": 0 },
+  "props": [
+    { "type": "dead_bush", "x": -25, "z": 3 }, { "type": "dead_bush", "x": -22, "z": -4 }, { "type": "tumbleweed", "x": -20, "z": 6 },
+    { "type": "tree_small", "x": -18, "z": -8 }, { "type": "tree_small", "x": -15, "z": 10 }, { "type": "tree_small", "x": -12, "z": -5 },
+    { "type": "bicycle", "x": -10, "z": 2 }, { "type": "mailbox", "x": -8, "z": -6 },
+    { "type": "beehive", "x": -5, "z": 8 }, { "type": "beehive", "x": 2, "z": -10 },
+    { "type": "tree_large", "x": 0, "z": 5 }, { "type": "tree_large", "x": 5, "z": -8 }, { "type": "tree_large", "x": -3, "z": -12 },
+    { "type": "picnic_table", "x": 8, "z": 3 }, { "type": "picnic_table", "x": 10, "z": -5 },
+    { "type": "tree_small", "x": 12, "z": 8 }, { "type": "tree_small", "x": 15, "z": -3 }, { "type": "tree_small", "x": 18, "z": 6 },
+    { "type": "tree_large", "x": 20, "z": -10 }, { "type": "tree_large", "x": 22, "z": 2 },
+    { "type": "bicycle", "x": 25, "z": -5 }, { "type": "rock_small", "x": 28, "z": 8 },
+    { "type": "tree_small", "x": -8, "z": 15 }, { "type": "tree_small", "x": 6, "z": 14 }, { "type": "tree_large", "x": 14, "z": 15 }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "opening": "Somewhere in the wide quiet desert, a very small whirlwind woke up with a very big dream.",
+  "ending": "Zephyr settled over the city — not as a storm, but as a story the wind would tell for a long time.\n\nThanks for playing.",
+  "beats": [
+    { "id": "desert_start", "stage": "desert", "trigger": "stage_start", "text": "Hmm. Not much out here. Just me, the sand, and… is that a rabbit? Sorry, rabbit.", "pauseInput": true },
+    { "id": "desert_first_pickup", "stage": "desert", "trigger": "first_pickup", "text": "Oh! I can take that with me. Nice." },
+    { "id": "desert_mass_5", "stage": "desert", "trigger": "mass", "value": 5, "text": "You know what? I bet the city has more stuff. Better stuff. Tall stuff." },
+    { "id": "desert_mass_10", "stage": "desert", "trigger": "mass", "value": 10, "text": "They say you gotta start small. Good news: I am extremely small." },
+    { "id": "desert_exit", "stage": "desert", "trigger": "exit_opens", "text": "I think… I'm big enough to leave. First stop: those mountains. Then? The city. Watch out, world." },
+
+    { "id": "mountain_start", "stage": "mountain", "trigger": "stage_start", "text": "Up. Why is it always up? Couldn't my dream be downhill?", "pauseInput": true },
+    { "id": "mountain_boulder", "stage": "mountain", "trigger": "object_type", "value": "boulder", "text": "Solid. Heavy. Like my determination. Mostly sand, though." },
+    { "id": "mountain_truck", "stage": "mountain", "trigger": "object_type", "value": "pickup_truck", "text": "A whole truck! I'm basically a traffic hazard now. Love that for me." },
+    { "id": "mountain_exit", "stage": "mountain", "trigger": "exit_opens", "text": "The desert feels far away already. Kind of miss the quiet. Kind of don't." },
+
+    { "id": "forest_start", "stage": "forest", "trigger": "stage_start", "text": "So many leaves! So many things that rustle! This is EXCELLENT.", "pauseInput": true },
+    { "id": "forest_beehive", "stage": "forest", "trigger": "object_type", "value": "beehive", "text": "Okay. Note to self: not everything wants to join the whirlwind." },
+    { "id": "forest_boost", "stage": "forest", "trigger": "boost_unlock", "text": "If I spin a little harder… oh HO. I'm FAST." },
+    { "id": "forest_exit", "stage": "forest", "trigger": "exit_opens", "text": "I can smell pavement. Or maybe that's just more dust. Either way: almost there." },
+
+    { "id": "suburbs_start", "stage": "suburbs", "trigger": "stage_start", "text": "Houses. Cars. People who definitely have homeowner's insurance. Deep breath. Spin.", "pauseInput": true },
+    { "id": "suburbs_car", "stage": "suburbs", "trigger": "object_type", "value": "car", "text": "Four wheels, one whirlwind. Fair trade." },
+    { "id": "suburbs_house", "stage": "suburbs", "trigger": "object_type", "value": "small_house", "text": "I just ate a house. A small one! Still! Mom would be proud. If I had a mom. Or a house." },
+    { "id": "suburbs_exit", "stage": "suburbs", "trigger": "exit_opens", "text": "The skyline's right there. Tall. Sparkly. Mine, probably." },
+
+    { "id": "downtown_start", "stage": "downtown", "trigger": "stage_start", "text": "Okay. City. Big buildings. Don't panic. Panic spinning is still spinning.", "pauseInput": true },
+    { "id": "downtown_bus", "stage": "downtown", "trigger": "object_type", "value": "bus", "text": "Public transit has entered the vortex." },
+    { "id": "downtown_office", "stage": "downtown", "trigger": "object_type", "value": "office_building", "text": "Floor 1… floor 2… I'm basically a moving elevator." },
+    { "id": "downtown_skyscraper_approach", "stage": "downtown", "trigger": "mass", "value": 200, "text": "That one. The really tall one. That's the dream, isn't it? Always was." },
+    { "id": "downtown_win", "stage": "downtown", "trigger": "win", "text": "I made it. I'm big. I'm here. …Huh. The city looks kind of cozy from inside a skyscraper. Hello, world. I grew up." }
+  ]
+}
