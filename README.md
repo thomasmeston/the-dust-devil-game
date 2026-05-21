@@ -17,6 +17,10 @@ Stage 2 (Mountain) soundtrack: `Mossy Pixel Boots.mp3` → `public/audio/mountai
 
 ## Play
 
+**Online:** https://thomasmeston.github.io/the-dust-devil-game/
+
+**Local dev:**
+
 ```bash
 npm install
 npm run dev
@@ -30,6 +34,37 @@ Open http://localhost:5173
 npm run build
 npm run preview
 ```
+
+## Deploy
+
+The production build uses relative asset paths (`base: './'`) so the same `dist/` output works on GitHub Pages and itch.io.
+
+### GitHub Pages
+
+Pushes to `main` automatically build and deploy via [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
+
+One-time setup in the repo **Settings → Pages**: set source to **GitHub Actions**.
+
+Live URL: https://thomasmeston.github.io/the-dust-devil-game/
+
+### itch.io
+
+```bash
+npm run package:itch
+```
+
+This builds the game and creates `dust-devil-itch.zip` with `dist/` contents at the zip root (`index.html`, `assets/`, `models/`, `textures/`, `audio/`).
+
+Upload the zip on itch.io with:
+
+| Setting | Value |
+|---------|-------|
+| Kind of project | HTML |
+| Embed options | **This file will be played in the browser** |
+| Viewport size | 1280 × 720, landscape |
+| Fullscreen button | Optional |
+
+After uploading, test the embedded player on the itch page (not just a local preview).
 
 ## Controls
 

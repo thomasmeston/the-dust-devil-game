@@ -1,9 +1,10 @@
 import { Howl } from 'howler';
 import type { StageId } from '../utils/constants';
+import { publicUrl } from '../utils/publicUrl';
 
 const STAGE_TRACKS: Partial<Record<StageId, string>> = {
-  desert: '/audio/desert_theme.mp3',
-  mountain: '/audio/mountain_theme.mp3',
+  desert: publicUrl('audio/desert_theme.mp3'),
+  mountain: publicUrl('audio/mountain_theme.mp3'),
 };
 
 const MUSIC_VOLUME = 0.35;

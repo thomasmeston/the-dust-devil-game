@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { publicUrl } from '../utils/publicUrl';
 
 class ModelLoader {
   private cache = new Map<string, THREE.Group>();
@@ -17,7 +18,7 @@ class ModelLoader {
     }
 
     const promise = this.loader
-      .loadAsync(`/models/${modelId}.glb`)
+      .loadAsync(publicUrl(`models/${modelId}.glb`))
       .then((gltf) => {
         const group = gltf.scene;
         group.traverse((child) => {

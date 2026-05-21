@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { STAGE_ORDER, type StageId } from '../utils/constants';
+import { publicUrl } from '../utils/publicUrl';
 
 /** Poly Haven ground textures per biome (CC0). */
 export const BIOME_TEXTURE_SOURCES: Record<
@@ -7,28 +8,28 @@ export const BIOME_TEXTURE_SOURCES: Record<
   { diffuse: string; normal: string; credit: string }
 > = {
   desert: {
-    diffuse: '/textures/desert_diff.jpg',
-    normal: '/textures/desert_nor.jpg',
+    diffuse: publicUrl('textures/desert_diff.jpg'),
+    normal: publicUrl('textures/desert_nor.jpg'),
     credit: 'Poly Haven — aerial_sand',
   },
   mountain: {
-    diffuse: '/textures/mountain_diff.jpg',
-    normal: '/textures/mountain_nor.jpg',
+    diffuse: publicUrl('textures/mountain_diff.jpg'),
+    normal: publicUrl('textures/mountain_nor.jpg'),
     credit: 'Poly Haven — aerial_rocks_02',
   },
   forest: {
-    diffuse: '/textures/forest_diff.jpg',
-    normal: '/textures/forest_nor.jpg',
+    diffuse: publicUrl('textures/forest_diff.jpg'),
+    normal: publicUrl('textures/forest_nor.jpg'),
     credit: 'Poly Haven — brown_mud_leaves_01',
   },
   suburbs: {
-    diffuse: '/textures/suburbs_diff.jpg',
-    normal: '/textures/suburbs_nor.jpg',
+    diffuse: publicUrl('textures/suburbs_diff.jpg'),
+    normal: publicUrl('textures/suburbs_nor.jpg'),
     credit: 'Poly Haven — aerial_grass_rock',
   },
   downtown: {
-    diffuse: '/textures/downtown_diff.jpg',
-    normal: '/textures/downtown_nor.jpg',
+    diffuse: publicUrl('textures/downtown_diff.jpg'),
+    normal: publicUrl('textures/downtown_nor.jpg'),
     credit: 'Poly Haven — asphalt_01',
   },
 };

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package:itch": "npm run build && node scripts/package-itch.mjs"
   },
   "dependencies": {
     "howler": "^2.2.4",

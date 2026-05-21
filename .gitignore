@@ -1,4 +1,5 @@
 node_modules/
 dist/
+dust-devil-itch.zip
 *.local
 .DS_Store
