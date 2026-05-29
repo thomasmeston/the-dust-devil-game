@@ -180,7 +180,7 @@ export class HUD {
         .hud-level { font-size: 0.82rem; }
         .hud-mass-label { font-size: 0.85rem; }
         .hud-total-mass { min-width: 5.5rem; padding: 8px 10px; }
-        .hud-hint { bottom: 28%; font-size: 0.78rem; }
+        .hud-hint { bottom: 38%; font-size: 0.78rem; }
         .hud-bottom { flex-wrap: wrap; gap: 8px; }
       }
     `;

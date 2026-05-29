@@ -1,8 +1,9 @@
 import type { InputManager } from '../game/InputManager';
 import { isMobileUi } from '../utils/device';
 
-const JOY_RADIUS = 58;
-const KNOB_RADIUS = 26;
+const JOY_RADIUS = 70;
+const KNOB_RADIUS = 32;
+const JOY_BASE_SIZE = JOY_RADIUS * 2;
 
 export class TouchControls {
   private el: HTMLDivElement;
@@ -158,17 +159,18 @@ export class TouchControls {
       }
       .touch-controls__joystick {
         position: absolute;
-        left: max(16px, env(safe-area-inset-left));
-        bottom: max(20px, env(safe-area-inset-bottom));
+        left: 50%;
+        bottom: max(24px, env(safe-area-inset-bottom));
+        transform: translateX(-50%);
         pointer-events: auto;
         touch-action: none;
       }
       .touch-controls__joystick-base {
-        width: 116px;
-        height: 116px;
+        width: ${JOY_BASE_SIZE}px;
+        height: ${JOY_BASE_SIZE}px;
         border-radius: 50%;
-        background: rgba(0, 0, 0, 0.35);
-        border: 2px solid rgba(255, 255, 255, 0.35);
+        background: rgba(0, 0, 0, 0.16);
+        border: 2px solid rgba(255, 255, 255, 0.2);
         position: relative;
         touch-action: none;
       }
@@ -181,10 +183,10 @@ export class TouchControls {
         margin-left: -${KNOB_RADIUS}px;
         margin-top: -${KNOB_RADIUS}px;
         border-radius: 50%;
-        background: rgba(251, 191, 36, 0.85);
-        border: 2px solid rgba(255, 255, 255, 0.6);
+        background: rgba(251, 191, 36, 0.42);
+        border: 2px solid rgba(255, 255, 255, 0.3);
         transform: translate(-50%, -50%);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         touch-action: none;
         pointer-events: none;
       }
