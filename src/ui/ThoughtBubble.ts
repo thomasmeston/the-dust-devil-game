@@ -1,6 +1,10 @@
+import { hintsForDevice } from '../utils/device';
+
 export class ThoughtBubble {
   private el: HTMLDivElement;
   private textEl: HTMLSpanElement;
+  private hintEl: HTMLSpanElement;
+  private innerEl: HTMLDivElement;
   private fullText = '';
   private charIndex = 0;
   private typing = false;
@@ -19,9 +23,25 @@ export class ThoughtBubble {
       </div>
     `;
     this.textEl = this.el.querySelector('.thought-bubble-text')!;
+    this.hintEl = this.el.querySelector('.thought-bubble-hint')!;
+    this.innerEl = this.el.querySelector('.thought-bubble-inner')!;
+    this.hintEl.textContent = hintsForDevice().thoughtBubble;
     container.appendChild(this.el);
     this.injectStyles();
     this.hide();
+  }
+
+  onTap(callback: () => void): void {
+    this.innerEl.addEventListener('pointerup', (e) => {
+      if (this.el.style.display === 'none') return;
+      e.preventDefault();
+      e.stopPropagation();
+      callback();
+    });
+  }
+
+  updateHint(): void {
+    this.hintEl.textContent = hintsForDevice().thoughtBubble;
   }
 
   private injectStyles(): void {
@@ -53,6 +73,9 @@ export class ThoughtBubble {
         color: #1a1a2e;
         box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         font-style: italic;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
       }
       .thought-bubble-cursor {
         animation: blink 0.8s step-end infinite;

@@ -19,6 +19,12 @@ export function distanceXZ(a: THREE.Vector3, b: THREE.Vector3): number {
   return Math.sqrt(dx * dx + dz * dz);
 }
 
+/** Y rotation so local +Z points along horizontal velocity (vx, vz). */
+export function facingAngleY(vx: number, vz: number, fallback = 0): number {
+  if (vx * vx + vz * vz < 1e-8) return fallback;
+  return Math.atan2(vx, vz);
+}
+
 export function directionAway(from: THREE.Vector3, to: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
   out.subVectors(from, to);
   out.y = 0;

@@ -1,3 +1,5 @@
+const TOUCH_DEAD_ZONE = 0.15;
+
 export class InputManager {
   keys = {
     forward: false,
@@ -9,10 +11,25 @@ export class InputManager {
   enabled = true;
   boostEnabled = false;
   private dismissPressed = false;
+  private inventoryPressed = false;
+  private touchMove = { x: 0, z: 0 };
 
   constructor() {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
+  }
+
+  setTouchMove(x: number, z: number): void {
+    this.touchMove.x = x;
+    this.touchMove.z = z;
+  }
+
+  requestInventoryToggle(): void {
+    this.inventoryPressed = true;
+  }
+
+  requestDismiss(): void {
+    this.dismissPressed = true;
   }
 
   private isDismissKey(code: string): boolean {
@@ -22,6 +39,11 @@ export class InputManager {
   private onKeyDown(e: KeyboardEvent): void {
     if (this.isDismissKey(e.code)) {
       this.dismissPressed = true;
+      e.preventDefault();
+      return;
+    }
+    if (e.code === 'Tab') {
+      this.inventoryPressed = true;
       e.preventDefault();
       return;
     }
@@ -81,7 +103,18 @@ export class InputManager {
     return true;
   }
 
+  consumeInventoryToggle(): boolean {
+    if (!this.inventoryPressed) return false;
+    this.inventoryPressed = false;
+    return true;
+  }
+
   getMovementVector(): { x: number; z: number } {
+    const touchLen = Math.hypot(this.touchMove.x, this.touchMove.z);
+    if (touchLen > TOUCH_DEAD_ZONE) {
+      return { x: this.touchMove.x / touchLen, z: this.touchMove.z / touchLen };
+    }
+
     let x = 0;
     let z = 0;
     if (this.keys.forward) z -= 1;

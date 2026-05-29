@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ObjectDef } from '../types/game';
 import type { SizeClass } from '../utils/constants';
+import { facingAngleY } from '../utils/math';
 import { fitModelToTarget, meshRadius, modelLoader } from './ModelLoader';
 
 export type PropState = 'grounded' | 'wobble' | 'orbit' | 'absorbed';
@@ -20,6 +21,10 @@ export interface AbsorbableProp {
   wobblePhase: number;
   flee: boolean;
   fleeSpeed: number;
+  wander: boolean;
+  wanderSpeed: number;
+  wanderHeading: number;
+  wanderTurnTimer: number;
   setPiece: boolean;
   oldX: number;
   oldZ: number;
@@ -56,6 +61,359 @@ export function createPropMesh(def: ObjectDef): THREE.Mesh {
   return mesh;
 }
 
+/** Low-poly goat with horns, head, and four legs on the ground. */
+export function createSheepMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const wool = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const legMat = new THREE.MeshToonMaterial({ color: new THREE.Color('#3f3830') });
+  const hornMat = new THREE.MeshToonMaterial({ color: new THREE.Color('#5c5348') });
+  const faceMat = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#2a2520'), 0.3),
+  });
+
+  const legH = sy * 0.3;
+  const legGeo = new THREE.CylinderGeometry(sx * 0.08, sx * 0.1, legH, 5);
+  const legOffsets: [number, number][] = [
+    [-sx * 0.3, -sz * 0.26],
+    [sx * 0.3, -sz * 0.26],
+    [-sx * 0.3, sz * 0.26],
+    [sx * 0.3, sz * 0.26],
+  ];
+  for (const [lx, lz] of legOffsets) {
+    const leg = new THREE.Mesh(legGeo, legMat);
+    leg.position.set(lx, legH * 0.5, lz);
+    group.add(leg);
+  }
+
+  const bodyH = sy * 0.46;
+  const bodyY = legH + bodyH * 0.5;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(sx * 1.05, bodyH, sz * 0.82), wool);
+  body.position.y = bodyY;
+  group.add(body);
+
+  const puff = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.32, 6, 5), wool);
+  puff.position.set(0, bodyY + bodyH * 0.35, -sz * 0.04);
+  puff.scale.set(1.15, 0.65, 1.05);
+  group.add(puff);
+
+  const headY = legH + bodyH * 0.72;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.4, sy * 0.3, sz * 0.36), wool);
+  head.position.set(0, headY, sz * 0.5);
+  group.add(head);
+
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.2, sy * 0.14, sz * 0.16), faceMat);
+  snout.position.set(0, headY - sy * 0.04, sz * 0.68);
+  group.add(snout);
+
+  for (const side of [-1, 1] as const) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.09, sy * 0.1, sz * 0.05), legMat);
+    ear.position.set(side * sx * 0.2, headY + sy * 0.1, sz * 0.46);
+    ear.rotation.z = side * 0.35;
+    group.add(ear);
+
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.1, sy * 0.38, 5), hornMat);
+    horn.position.set(side * sx * 0.17, headY + sy * 0.16, sz * 0.38);
+    horn.rotation.z = side * -0.65;
+    horn.rotation.x = -0.4;
+    group.add(horn);
+  }
+
+  group.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  return group;
+}
+
+/** Low-poly desert tortoise — shell, big legs, tail, and head. */
+export function createTortoiseMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const shellMat = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const skinMat = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#8B9A5B'), 0.45),
+  });
+
+  const legH = sy * 0.38;
+  const legGeo = new THREE.CylinderGeometry(sx * 0.13, sx * 0.17, legH, 6);
+  const footGeo = new THREE.CylinderGeometry(sx * 0.2, sx * 0.22, sy * 0.06, 6);
+  for (const [lx, lz] of [
+    [-sx * 0.38, -sz * 0.3],
+    [sx * 0.38, -sz * 0.3],
+    [-sx * 0.38, sz * 0.3],
+    [sx * 0.38, sz * 0.3],
+  ] as [number, number][]) {
+    const leg = new THREE.Mesh(legGeo, skinMat);
+    leg.position.set(lx, legH * 0.5, lz);
+    group.add(leg);
+
+    const foot = new THREE.Mesh(footGeo, skinMat);
+    foot.position.set(lx, sy * 0.03, lz);
+    group.add(foot);
+  }
+
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.55, 8, 6), shellMat);
+  shell.position.y = sy * 0.42;
+  shell.scale.set(1.1, 0.55, 1.25);
+
+  const shellBase = new THREE.Color(color);
+  const hexLight = new THREE.MeshToonMaterial({
+    color: shellBase.clone().lerp(new THREE.Color('#e8f0c8'), 0.38),
+  });
+  const hexDark = new THREE.MeshToonMaterial({
+    color: shellBase.clone().lerp(new THREE.Color('#1a2410'), 0.45),
+  });
+  const hexGeo = new THREE.CylinderGeometry(1, 1, 0.055, 6);
+  const hexPlates: [number, number, number, number, boolean][] = [
+    [0, 0.54, 0, 0.22, false],
+    [0, 0.5, 0.22, 0.15, true],
+    [0, 0.5, -0.22, 0.15, false],
+    [0.2, 0.48, 0.12, 0.14, true],
+    [-0.2, 0.48, 0.12, 0.14, false],
+    [0.2, 0.48, -0.12, 0.14, false],
+    [-0.2, 0.48, -0.12, 0.14, true],
+    [0.26, 0.46, 0, 0.13, false],
+    [-0.26, 0.46, 0, 0.13, true],
+    [0, 0.46, -0.3, 0.12, true],
+    [0, 0.47, 0.3, 0.12, false],
+    [0.14, 0.45, 0.24, 0.11, true],
+    [-0.14, 0.45, -0.24, 0.11, true],
+  ];
+  for (const [lx, ly, lz, r, dark] of hexPlates) {
+    const hex = new THREE.Mesh(hexGeo, dark ? hexDark : hexLight);
+    hex.position.set(lx * sx, ly * sy, lz * sz);
+    hex.scale.set(r * sx, 1, r * sz);
+    shell.add(hex);
+  }
+
+  group.add(shell);
+
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.18, sy * 0.16, sz * 0.34), skinMat);
+  tail.position.set(0, sy * 0.2, -sz * 0.6);
+  group.add(tail);
+
+  const tailTip = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.1, 6, 5), skinMat);
+  tailTip.position.set(0, sy * 0.17, -sz * 0.9);
+  tailTip.scale.set(0.75, 0.55, 1.1);
+  group.add(tailTip);
+
+  const headY = sy * 0.18;
+  const headParts: { mesh: THREE.Mesh; rest: THREE.Vector3 }[] = [];
+
+  const addHeadPart = (mesh: THREE.Mesh, pos: THREE.Vector3): void => {
+    mesh.position.copy(pos);
+    group.add(mesh);
+    headParts.push({ mesh, rest: pos.clone() });
+  };
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.46, sy * 0.3, sz * 0.38), skinMat);
+  addHeadPart(head, new THREE.Vector3(0, headY, sz * 0.5));
+
+  const faceMat = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#4A5A32'), 0.35),
+  });
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.28, sy * 0.16, sz * 0.2), faceMat);
+  addHeadPart(snout, new THREE.Vector3(0, headY - sy * 0.02, sz * 0.72));
+
+  const eyeWhiteMat = new THREE.MeshToonMaterial({ color: 0xf8fafc });
+  const eyeMat = new THREE.MeshToonMaterial({ color: 0x1a1a2e });
+  for (const side of [-1, 1] as const) {
+    const eyeY = headY + sy * 0.1;
+    const eyeX = side * sx * 0.24;
+    const eyeZ = sz * 0.56;
+
+    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.2, 8, 6), eyeWhiteMat);
+    eyeWhite.scale.set(1, 1.15, 0.8);
+    addHeadPart(eyeWhite, new THREE.Vector3(eyeX, eyeY, eyeZ));
+
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.11, 6, 5), eyeMat);
+    addHeadPart(pupil, new THREE.Vector3(eyeX, eyeY, eyeZ + sz * 0.06));
+  }
+
+  group.userData = {
+    ...group.userData,
+    isTortoise: true,
+    headParts,
+    scale: [sx, sy, sz] as [number, number, number],
+  };
+
+  group.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+  return group;
+}
+
+interface TortoiseMotionData {
+  isTortoise: true;
+  headParts: { mesh: THREE.Mesh; rest: THREE.Vector3 }[];
+  scale: [number, number, number];
+}
+
+/** Bob and stretch tortoise head while walking. */
+export function updateTortoiseHeadMove(
+  mesh: THREE.Object3D,
+  phase: number,
+  intensity: number
+): void {
+  const data = mesh.userData as Partial<TortoiseMotionData>;
+  if (!data.isTortoise || !data.headParts || !data.scale) return;
+
+  const amp = Math.max(0, Math.min(1, intensity));
+  const [sx, sy, sz] = data.scale;
+  const sway = Math.sin(phase * 2.5) * sx * 0.06 * amp;
+  const bob = Math.sin(phase * 4) * sy * 0.07 * amp;
+  const reach = Math.sin(phase * 3) * sz * 0.14 * amp;
+
+  for (const part of data.headParts) {
+    part.mesh.position.set(
+      part.rest.x + sway,
+      part.rest.y + bob,
+      part.rest.z + reach
+    );
+  }
+}
+
+interface SnakeWiggleData {
+  isSnake: true;
+  segmentMeshes: THREE.Mesh[];
+  restPositions: THREE.Vector3[];
+  headRest: THREE.Vector3;
+  headMesh: THREE.Mesh;
+  eyeMeshes: THREE.Mesh[];
+  scale: [number, number, number];
+  lateralAmp: number;
+  liftAmp: number;
+}
+
+/** Slithering body wave while the snake moves. */
+export function updateSnakeWiggle(mesh: THREE.Object3D, phase: number, intensity: number): void {
+  const data = mesh.userData as Partial<SnakeWiggleData>;
+  if (
+    !data.isSnake ||
+    !data.segmentMeshes ||
+    !data.restPositions ||
+    !data.headMesh ||
+    !data.headRest ||
+    !data.eyeMeshes ||
+    !data.scale ||
+    data.lateralAmp === undefined ||
+    data.liftAmp === undefined
+  ) {
+    return;
+  }
+
+  const amp = Math.max(0, Math.min(1, intensity));
+  const segments = data.segmentMeshes;
+  const rests = data.restPositions;
+  const lateralAmp = data.lateralAmp;
+  const liftAmp = data.liftAmp;
+
+  for (let i = 0; i < segments.length; i++) {
+    const rest = rests[i];
+    const wave = Math.sin(phase * 4.5 - i * 0.65) * lateralAmp * amp;
+    const lift = Math.sin(phase * 3.5 - i * 0.45) * liftAmp * amp * 0.35;
+    const surge = Math.sin(phase * 2.5 - i * 0.35) * amp * 0.06;
+    segments[i].position.set(rest.x + wave, rest.y + lift, rest.z + surge);
+  }
+
+  const headRest = data.headRest;
+  const [sx, sy, sz] = data.scale;
+  const headWave = Math.sin(phase * 4.5 + 0.4) * lateralAmp * amp * 0.55;
+  const headLift = Math.sin(phase * 3.5 + 0.2) * liftAmp * amp * 0.35;
+  const headReach = Math.sin(phase * 4.5) * sz * 0.12 * amp;
+  data.headMesh.position.set(
+    headRest.x + headWave,
+    headRest.y + headLift,
+    headRest.z + Math.sin(phase * 2.5 + 0.3) * amp * 0.06 + headReach
+  );
+
+  const h = data.headMesh.position;
+  for (const eye of data.eyeMeshes) {
+    const side = (eye.userData.eyeSide as number) ?? 1;
+    eye.position.set(h.x + side * sx * 0.35, h.y + sy * 0.08, h.z + sz * 0.06);
+  }
+}
+
+/** Low-poly snake — segmented body with head. */
+export function createSnakeMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const bodyMat = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const bellyMat = new THREE.MeshToonMaterial({
+    color: new THREE.Color('#FDE68A'),
+  });
+  const segmentCount = 7;
+  const spacing = sz / segmentCount;
+  const segmentMeshes: THREE.Mesh[] = [];
+  const restPositions: THREE.Vector3[] = [];
+
+  for (let i = 0; i < segmentCount; i++) {
+    const t = i / (segmentCount - 1);
+    const taper = 0.55 + (1 - Math.abs(t - 0.5) * 1.4) * 0.45;
+    const seg = new THREE.Mesh(
+      new THREE.SphereGeometry(sx * taper, 6, 5),
+      i % 2 === 0 ? bodyMat : bellyMat
+    );
+    const rest = new THREE.Vector3(0, sy * 0.45, -sz * 0.42 + i * spacing);
+    seg.position.copy(rest);
+    seg.scale.set(1, 0.65, 1.1);
+    group.add(seg);
+    segmentMeshes.push(seg);
+    restPositions.push(rest);
+  }
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.9, 6, 5), bodyMat);
+  const headRest = new THREE.Vector3(0, sy * 0.5, sz * 0.42);
+  head.position.copy(headRest);
+  head.scale.set(1.1, 0.75, 1.2);
+  group.add(head);
+
+  const eyeMat = new THREE.MeshToonMaterial({ color: 0x1a1a2e });
+  const eyeMeshes: THREE.Mesh[] = [];
+  for (const side of [-1, 1] as const) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.12, 4, 4), eyeMat);
+    eye.position.set(side * sx * 0.35, sy * 0.58, sz * 0.48);
+    eye.userData.eyeSide = side;
+    group.add(eye);
+    eyeMeshes.push(eye);
+  }
+
+  const wiggleData: SnakeWiggleData = {
+    isSnake: true,
+    segmentMeshes,
+    restPositions,
+    headRest,
+    headMesh: head,
+    eyeMeshes,
+    scale: [sx, sy, sz],
+    lateralAmp: sx * 0.55,
+    liftAmp: sy * 0.2,
+  };
+  group.userData = { ...group.userData, ...wiggleData };
+
+  group.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+  return group;
+}
+
+function createCritterMesh(type: string, def: ObjectDef): THREE.Group | null {
+  if (type === 'goat') return createSheepMesh(def.color, def.scale);
+  if (type === 'tortoise') return createTortoiseMesh(def.color, def.scale);
+  if (type === 'snake') return createSnakeMesh(def.color, def.scale);
+  return null;
+}
+
 export async function createPropMeshFromDef(def: ObjectDef): Promise<THREE.Object3D> {
   if (def.model) {
     try {
@@ -69,17 +427,33 @@ export async function createPropMeshFromDef(def: ObjectDef): Promise<THREE.Objec
   return createPropMesh(def);
 }
 
+function groundAlignMesh(mesh: THREE.Object3D, groundY: number): void {
+  const box = new THREE.Box3().setFromObject(mesh);
+  mesh.position.y = groundY - box.min.y;
+}
+
 export async function createAbsorbableProp(
   type: string,
   def: ObjectDef,
   x: number,
   z: number,
   y = 0,
-  rotation = 0
+  rotation = 0,
+  pitch = 0,
+  roll = 0
 ): Promise<AbsorbableProp> {
-  const mesh = await createPropMeshFromDef(def);
-  mesh.rotation.y = rotation;
-  const radius = def.model ? meshRadius(mesh) : Math.max(...def.scale) * 0.6;
+  const critter = createCritterMesh(type, def);
+  const mesh = critter ?? (await createPropMeshFromDef(def));
+  mesh.rotation.set(pitch, rotation, roll);
+  if (pitch !== 0 || roll !== 0) {
+    groundAlignMesh(mesh, y);
+  } else if (critter || def.model) {
+    groundAlignMesh(mesh, y);
+  } else {
+    mesh.position.y = def.scale[1] / 2;
+  }
+  const radius =
+    critter || def.model ? meshRadius(mesh) : Math.max(...def.scale) * 0.6;
   const prop: AbsorbableProp = {
     id: nextPropId++,
     type,
@@ -95,11 +469,19 @@ export async function createAbsorbableProp(
     wobblePhase: Math.random() * Math.PI * 2,
     flee: def.flee ?? false,
     fleeSpeed: def.fleeSpeed ?? 5,
+    wander: def.wander ?? false,
+    wanderSpeed: def.wanderSpeed ?? 1.5,
+    wanderHeading: rotation || Math.random() * Math.PI * 2,
+    wanderTurnTimer: 1 + Math.random() * 2,
     setPiece: def.setPiece ?? false,
     oldX: x,
     oldZ: z,
   };
-  mesh.position.set(x, mesh.position.y + y, z);
+  mesh.position.set(x, mesh.position.y, z);
+  if (type === 'snake' || type === 'tortoise') {
+    const h = prop.wanderHeading;
+    mesh.rotation.y = facingAngleY(Math.cos(h), Math.sin(h), mesh.rotation.y);
+  }
   return prop;
 }
 

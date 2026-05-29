@@ -15,11 +15,13 @@
     { "type": "pebble", "x": -6, "z": -4 }, { "type": "pebble", "x": 8, "z": 5 }, { "type": "pebble", "x": -2, "z": 7 },
     { "type": "tumbleweed", "x": 6, "z": -5 }, { "type": "tumbleweed", "x": -8, "z": 2 }, { "type": "tumbleweed", "x": 10, "z": 3 },
     { "type": "dead_bush", "x": -5, "z": -6 }, { "type": "dead_bush", "x": 7, "z": 8 }, { "type": "dead_bush", "x": -10, "z": -3 },
-    { "type": "soda_can", "x": 2, "z": -4 }, { "type": "soda_can", "x": -3, "z": 5 },
+    { "type": "soda_can", "x": 2, "z": -4, "pitch": 1.5708, "rotation": 0.5 },
+    { "type": "soda_can", "x": -3, "z": 5, "pitch": 1.5708, "rotation": 2.1 },
     { "type": "cactus_small", "x": 12, "z": -8 }, { "type": "cactus_small", "x": -14, "z": 6 }, { "type": "cactus_small", "x": 8, "z": 12 },
     { "type": "cactus_round", "x": -10, "z": -10 }, { "type": "cactus_round", "x": 15, "z": 5 },
     { "type": "rock_small", "x": -7, "z": 10 }, { "type": "rock_small", "x": 11, "z": -12 }, { "type": "rock_small", "x": -15, "z": -8 },
-    { "type": "road_sign", "x": 20, "z": 0 }, { "type": "road_sign", "x": -18, "z": -5 },
-    { "type": "jackrabbit", "x": 4, "z": 10 }, { "type": "jackrabbit", "x": -12, "z": -2 }, { "type": "jackrabbit", "x": 16, "z": -6 }
+    { "type": "jackrabbit", "x": 4, "z": 10 }, { "type": "jackrabbit", "x": -12, "z": -2 }, { "type": "jackrabbit", "x": 16, "z": -6 },
+    { "type": "tortoise", "x": -9, "z": 7 }, { "type": "tortoise", "x": 13, "z": -5 }, { "type": "tortoise", "x": -5, "z": -12 },
+    { "type": "snake", "x": 7, "z": 5 }, { "type": "snake", "x": -14, "z": 11 }, { "type": "snake", "x": 11, "z": -14 }
   ]
 }

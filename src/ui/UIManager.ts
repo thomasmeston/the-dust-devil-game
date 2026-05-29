@@ -1,6 +1,7 @@
 import { computeStars } from '../utils/math';
 import type { LevelDef } from '../types/game';
 import { STAGE_FLAVOR, STAGE_TITLES, type StageId } from '../utils/constants';
+import { hintsForDevice, isMobileUi } from '../utils/device';
 
 export class UIManager {
   private overlay: HTMLDivElement;
@@ -42,10 +43,33 @@ export class UIManager {
         transition: transform 0.15s, box-shadow 0.15s;
       }
       .screen .btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(251,191,36,0.4); }
+      @media (max-width: 768px), (pointer: coarse) {
+        .screen { padding: max(1.25rem, env(safe-area-inset-top)) 1rem max(1.25rem, env(safe-area-inset-bottom)); }
+        .screen h1 { font-size: clamp(1.6rem, 8vw, 2.4rem); }
+        .screen h2 { font-size: clamp(1.2rem, 5vw, 1.6rem); }
+        .screen p { font-size: 1rem; }
+        .screen .btn {
+          width: 100%;
+          max-width: 280px;
+          min-height: 48px;
+        }
+        .stage-intro-card { pointer-events: auto; touch-action: manipulation; cursor: pointer; }
+      }
       .screen .stars-big { font-size: 2.5rem; letter-spacing: 8px; margin: 1rem 0; }
       .screen .stars-big .lit { color: #fbbf24; }
       .screen .stars-big span { color: #475569; }
       .screen .controls { color: #94a3b8; font-size: 0.9rem; margin-top: 1rem; font-style: normal; }
+      .screen .credits-block { margin: 1.5rem 0 1rem; }
+      .screen .credits-heading {
+        color: #fbbf24; font-size: 1rem; font-weight: 800;
+        letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 0.75rem;
+        font-style: normal;
+      }
+      .screen .credits-names {
+        list-style: none; padding: 0; margin: 0;
+        font-size: 1.15rem; color: #e2e8f0; line-height: 1.8; font-style: normal;
+      }
+      .screen .credits-names li { font-weight: 700; }
       .stage-intro-card {
         position: absolute; inset: 0; z-index: 150;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -67,7 +91,7 @@ export class UIManager {
       <p>Somewhere in the wide quiet desert, a very small whirlwind woke up with a very big dream.</p>
       <button class="btn" id="btn-play">Play</button>
       <button class="btn" id="btn-mute" style="margin-top:12px;background:#475569;color:#fff;">Sound: On</button>
-      <p class="controls">WASD to move · Shift to boost (Forest+) · Space / Enter / Esc to close dialogue</p>
+      <p class="controls">${hintsForDevice().title}</p>
     `;
     this.overlay.appendChild(screen);
     screen.querySelector('#btn-play')!.addEventListener('click', () => {
@@ -89,10 +113,20 @@ export class UIManager {
       <p>${STAGE_FLAVOR[stageId]}</p>
     `;
     this.overlay.appendChild(card);
-    setTimeout(() => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
       card.remove();
       onDone();
-    }, 2200);
+    };
+    const timer = window.setTimeout(finish, 2200);
+    if (isMobileUi()) {
+      card.addEventListener('pointerup', () => {
+        window.clearTimeout(timer);
+        finish();
+      });
+    }
   }
 
   showStageComplete(
@@ -124,14 +158,34 @@ export class UIManager {
     });
   }
 
-  showCredits(ending: string, onRestart: () => void): void {
+  showCredits(
+    ending: string,
+    credits: string[],
+    musicBy: string | undefined,
+    onRestart: () => void
+  ): void {
     this.clear();
     const screen = document.createElement('div');
     screen.className = 'screen';
     const lines = ending.split('\n').map((l) => `<p>${l}</p>`).join('');
+    const madeByHtml =
+      credits.length > 0
+        ? `<div class="credits-block">
+            <p class="credits-heading">Made by</p>
+            <ul class="credits-names">${credits.map((name) => `<li>${escapeHtml(name)}</li>`).join('')}</ul>
+          </div>`
+        : '';
+    const musicByHtml = musicBy
+      ? `<div class="credits-block">
+          <p class="credits-heading">Music by</p>
+          <ul class="credits-names"><li>${escapeHtml(musicBy)}</li></ul>
+        </div>`
+      : '';
+    const creditsHtml = `${madeByHtml}${musicByHtml}`;
     screen.innerHTML = `
       <h1>The End</h1>
       ${lines}
+      ${creditsHtml}
       <button class="btn" id="btn-restart">Play Again</button>
     `;
     this.overlay.appendChild(screen);
@@ -148,4 +202,12 @@ export class UIManager {
   getOverlay(): HTMLElement {
     return this.overlay;
   }
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

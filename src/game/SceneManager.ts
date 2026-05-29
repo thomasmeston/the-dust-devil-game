@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isMobileUi } from '../utils/device';
 
 export class SceneManager {
   readonly scene: THREE.Scene;
@@ -11,7 +12,8 @@ export class SceneManager {
     this.container = container;
     this.scene = new THREE.Scene();
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const maxDpr = isMobileUi() ? 1.5 : 2;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;

@@ -11,6 +11,8 @@ export interface ObjectDef {
   setPiece?: boolean;
   flee?: boolean;
   fleeSpeed?: number;
+  wander?: boolean;
+  wanderSpeed?: number;
 }
 
 export interface PlacedProp {
@@ -18,7 +20,12 @@ export interface PlacedProp {
   x: number;
   z: number;
   y?: number;
+  /** Yaw (radians). */
   rotation?: number;
+  /** Pitch — tilt forward/back (radians). Use ~1.57 to lay cylinders on their side. */
+  pitch?: number;
+  /** Roll — tilt left/right (radians). */
+  roll?: number;
 }
 
 export interface LevelDef {
@@ -50,5 +57,7 @@ export interface StoryBeat {
 export interface StoryScript {
   opening: string;
   ending: string;
+  credits?: string[];
+  musicBy?: string;
   beats: StoryBeat[];
 }

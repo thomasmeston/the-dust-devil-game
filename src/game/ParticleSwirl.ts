@@ -8,6 +8,11 @@ export class ParticleSwirl {
   private maxDebris: number;
   private trailPool: THREE.Mesh[] = [];
   private trailIndex = 0;
+  private fleeTrailPool: THREE.Mesh[] = [];
+  private fleeTrailIndex = 0;
+  private dirtTrailPool: THREE.Mesh[] = [];
+  private dirtTrailIndex = 0;
+  private fleeTrailCooldowns = new Map<number, number>();
 
   constructor(scene: THREE.Scene, maxDebris = 30) {
     this.scene = scene;
@@ -38,6 +43,36 @@ export class ParticleSwirl {
       m.rotation.x = -Math.PI / 2;
       this.scene.add(m);
       this.trailPool.push(m);
+    }
+
+    const fleeGeo = new THREE.PlaneGeometry(0.18, 0.18);
+    for (let i = 0; i < 18; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xc9a87c,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const m = new THREE.Mesh(fleeGeo, mat);
+      m.rotation.x = -Math.PI / 2;
+      this.scene.add(m);
+      this.fleeTrailPool.push(m);
+    }
+
+    const dirtGeo = new THREE.PlaneGeometry(0.22, 0.22);
+    for (let i = 0; i < 18; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x6b5344,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const m = new THREE.Mesh(dirtGeo, mat);
+      m.rotation.x = -Math.PI / 2;
+      this.scene.add(m);
+      this.dirtTrailPool.push(m);
     }
   }
 
@@ -82,6 +117,58 @@ export class ParticleSwirl {
       else (m.material as THREE.MeshBasicMaterial).opacity = 0;
     };
     fade();
+  }
+
+  /** Small dust/dirt puffs left behind fleeing animals. */
+  spawnFleeTrail(
+    propId: number,
+    pos: THREE.Vector3,
+    velX: number,
+    velZ: number,
+    dt: number,
+    variant: 'dust' | 'dirt' = 'dust'
+  ): void {
+    const speed = Math.sqrt(velX * velX + velZ * velZ);
+    if (speed < 0.35) return;
+
+    const cooldown = this.fleeTrailCooldowns.get(propId) ?? 0;
+    if (cooldown > 0) {
+      this.fleeTrailCooldowns.set(propId, cooldown - dt);
+      return;
+    }
+    const cooldownSec =
+      variant === 'dirt' ? 0.06 : speed < 2 ? 0.08 : 0.05;
+    this.fleeTrailCooldowns.set(propId, cooldownSec);
+
+    const pool = variant === 'dirt' ? this.dirtTrailPool : this.fleeTrailPool;
+    const index = variant === 'dirt' ? this.dirtTrailIndex++ : this.fleeTrailIndex++;
+    const m = pool[index % pool.length];
+
+    const nx = velX / speed;
+    const nz = velZ / speed;
+    m.position.set(pos.x - nx * 0.25, variant === 'dirt' ? 0.1 : 0.12, pos.z - nz * 0.25);
+    (m.material as THREE.MeshBasicMaterial).opacity = variant === 'dirt' ? 0.48 : 0.42;
+    m.scale.setScalar((variant === 'dirt' ? 0.65 : 0.55) + speed * 0.04);
+
+    let life = variant === 'dirt' ? 0.45 : 0.38;
+    const fade = () => {
+      life -= 0.016;
+      (m.material as THREE.MeshBasicMaterial).opacity = life * (variant === 'dirt' ? 0.6 : 0.55);
+      m.scale.multiplyScalar(1.03);
+      if (life > 0) requestAnimationFrame(fade);
+      else (m.material as THREE.MeshBasicMaterial).opacity = 0;
+    };
+    fade();
+  }
+
+  resetFleeTrails(): void {
+    this.fleeTrailCooldowns.clear();
+    for (const m of this.fleeTrailPool) {
+      (m.material as THREE.MeshBasicMaterial).opacity = 0;
+    }
+    for (const m of this.dirtTrailPool) {
+      (m.material as THREE.MeshBasicMaterial).opacity = 0;
+    }
   }
 
   spawnPuff(scene: THREE.Scene, pos: THREE.Vector3): void {
@@ -130,6 +217,16 @@ export class ParticleSwirl {
       (p.material as THREE.Material).dispose();
     }
     for (const t of this.trailPool) {
+      this.scene.remove(t);
+      t.geometry.dispose();
+      (t.material as THREE.Material).dispose();
+    }
+    for (const t of this.fleeTrailPool) {
+      this.scene.remove(t);
+      t.geometry.dispose();
+      (t.material as THREE.Material).dispose();
+    }
+    for (const t of this.dirtTrailPool) {
       this.scene.remove(t);
       t.geometry.dispose();
       (t.material as THREE.Material).dispose();

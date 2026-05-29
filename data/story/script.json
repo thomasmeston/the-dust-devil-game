@@ -1,6 +1,8 @@
 {
   "opening": "Somewhere in the wide quiet desert, a very small whirlwind woke up with a very big dream.",
   "ending": "Zephyr settled over the city — not as a storm, but as a story the wind would tell for a long time.\n\nThanks for playing.",
+  "credits": ["Marlon Meston", "Thomas Meston", "Meryl Meston"],
+  "musicBy": "Suno",
   "beats": [
     { "id": "desert_start", "stage": "desert", "trigger": "stage_start", "text": "Hmm. Not much out here. Just me, the sand, and… is that a rabbit? Sorry, rabbit.", "pauseInput": true },
     { "id": "desert_first_pickup", "stage": "desert", "trigger": "first_pickup", "text": "Oh! I can take that with me. Nice." },

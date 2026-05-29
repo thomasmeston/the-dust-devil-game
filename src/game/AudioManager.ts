@@ -2,9 +2,12 @@ import { Howl } from 'howler';
 import type { StageId } from '../utils/constants';
 import { publicUrl } from '../utils/publicUrl';
 
-const STAGE_TRACKS: Partial<Record<StageId, string>> = {
+const STAGE_TRACKS: Record<StageId, string> = {
   desert: publicUrl('audio/desert_theme.mp3'),
   mountain: publicUrl('audio/mountain_theme.mp3'),
+  forest: publicUrl('audio/forest_theme.mp3'),
+  suburbs: publicUrl('audio/suburbs_theme.mp3'),
+  downtown: publicUrl('audio/downtown_theme.mp3'),
 };
 
 const MUSIC_VOLUME = 0.35;
@@ -90,27 +93,14 @@ export class AudioManager {
     if (this.muted) return;
 
     const track = STAGE_TRACKS[stageId];
-    if (track) {
-      this.musicHowl = new Howl({
-        src: [track],
-        loop: true,
-        volume: MUSIC_VOLUME,
-        html5: true,
-      });
-      this.musicHowl.play();
-      return;
-    }
-
-    if (!this.ctx) return;
-    this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.08;
-    this.musicGain.connect(this.ctx.destination);
-
-    this.musicOsc = this.ctx.createOscillator();
-    this.musicOsc.type = 'triangle';
-    this.musicOsc.frequency.value = 130 + stageIndex * 15;
-    this.musicOsc.connect(this.musicGain);
-    this.musicOsc.start();
+    this.musicHowl = new Howl({
+      src: [track],
+      loop: true,
+      volume: MUSIC_VOLUME,
+      html5: true,
+    });
+    this.musicHowl.play();
+    void stageIndex;
   }
 
   stopMusic(): void {

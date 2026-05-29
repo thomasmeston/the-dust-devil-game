@@ -8,12 +8,16 @@ import {
 } from './PropFactory';
 import { SpatialGrid } from './SpatialGrid';
 import { groundTextureLoader } from './GroundTextureLoader';
+import { addLowBoulderRidge, createBorderMountains } from './BorderMountains';
+import { playableHalfExtents } from '../utils/bounds';
 
 export class StageManager {
   props: AbsorbableProp[] = [];
   exitPortal: THREE.Group | null = null;
   exitOpen = false;
   level: LevelDef | null = null;
+  playableHalfX = 0;
+  playableHalfZ = 0;
   private grid: SpatialGrid;
   private scene: THREE.Scene;
 
@@ -73,6 +77,11 @@ export class StageManager {
       this.scene.fog = null;
     }
 
+    const { halfX, halfZ } = playableHalfExtents(level.width, level.depth);
+    this.playableHalfX = halfX;
+    this.playableHalfZ = halfZ;
+    this.scene.add(createBorderMountains(stageId, level.width, level.depth));
+
     for (const placed of level.props) {
       const def = objectDefs[placed.type];
       if (!def) continue;
@@ -82,7 +91,9 @@ export class StageManager {
         placed.x,
         placed.z,
         placed.y ?? 0,
-        placed.rotation ?? 0
+        placed.rotation ?? 0,
+        placed.pitch ?? 0,
+        placed.roll ?? 0
       );
       this.props.push(prop);
       this.scene.add(prop.mesh);
@@ -150,7 +161,8 @@ export class StageManager {
     const group = new THREE.Group();
     group.name = 'biomeDecor';
     const palette = BIOME_PALETTES[stageId];
-    const count = stageId === 'desert' ? 40 : stageId === 'downtown' ? 15 : 25;
+    const count =
+      stageId === 'desert' ? 40 : stageId === 'downtown' ? 0 : 25;
 
     for (let i = 0; i < count; i++) {
       const geo =
@@ -158,16 +170,14 @@ export class StageManager {
           ? new THREE.DodecahedronGeometry(0.3 + Math.random() * 0.5, 0)
           : stageId === 'forest'
             ? new THREE.ConeGeometry(0.2, 0.4, 4)
-            : stageId === 'downtown'
-              ? new THREE.BoxGeometry(0.15, 0.05, 0.15)
-              : new THREE.ConeGeometry(0.15, 0.25, 4);
+            : new THREE.ConeGeometry(0.15, 0.25, 4);
 
       const shade = new THREE.Color(palette.accent).lerp(new THREE.Color(palette.ground), Math.random() * 0.6);
       const mat = new THREE.MeshToonMaterial({ color: shade });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(
         (Math.random() - 0.5) * width * 0.9,
-        stageId === 'downtown' ? 0.03 : 0.12,
+        0.12,
         (Math.random() - 0.5) * depth * 0.9
       );
       mesh.rotation.y = Math.random() * Math.PI * 2;
@@ -176,13 +186,23 @@ export class StageManager {
     }
 
     if (stageId === 'mountain') {
-      for (let s = 0; s < 3; s++) {
-        const geo = new THREE.BoxGeometry(12, 0.8, 8);
-        const mat = new THREE.MeshToonMaterial({ color: palette.ground });
-        const step = new THREE.Mesh(geo, mat);
-        step.position.set((s - 1) * 14, 0.4 + s * 0.6, -20 + s * 18);
-        step.receiveShadow = true;
-        group.add(step);
+      const baseColor = new THREE.Color(palette.ground);
+      const rockColor = new THREE.Color(palette.accent).lerp(baseColor, 0.35);
+      const ridges = [
+        { x: -14, z: -20, spanX: 11, spanZ: 7 },
+        { x: 0, z: -2, spanX: 13, spanZ: 8 },
+        { x: 14, z: 16, spanX: 11, spanZ: 7 },
+      ];
+      for (const ridge of ridges) {
+        addLowBoulderRidge(
+          group,
+          ridge.x,
+          ridge.z,
+          ridge.spanX,
+          ridge.spanZ,
+          baseColor,
+          rockColor
+        );
       }
     }
 
@@ -201,6 +221,17 @@ export class StageManager {
   }
 
   clear(): void {
+    const border = this.scene.getObjectByName('borderMountains');
+    if (border) {
+      this.scene.remove(border);
+      border.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+          else child.material.dispose();
+        }
+      });
+    }
     const decor = this.scene.getObjectByName('biomeDecor');
     if (decor) {
       this.scene.remove(decor);
@@ -230,5 +261,7 @@ export class StageManager {
     }
     this.exitOpen = false;
     this.level = null;
+    this.playableHalfX = 0;
+    this.playableHalfZ = 0;
   }
 }

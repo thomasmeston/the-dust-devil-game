@@ -12,8 +12,13 @@ Low-poly GLB models are in `public/models/` (authored via Blender MCP). Ground t
 | Suburbs | aerial_grass_rock |
 | Downtown | asphalt_01 |
 
-Stage 1 (Desert) soundtrack: `Cowbell Save File.mp3` → `public/audio/desert_theme.mp3`  
-Stage 2 (Mountain) soundtrack: `Mossy Pixel Boots.mp3` → `public/audio/mountain_theme.mp3`
+| Stage | Source track | Repo path |
+|-------|----------------|-----------|
+| 1 Desert | Cowbell Save File.mp3 | `public/audio/desert_theme.mp3` |
+| 2 Mountain | Mossy Pixel Boots.mp3 | `public/audio/mountain_theme.mp3` |
+| 3 Forest | Under Pine Wings.mp3 | `public/audio/forest_theme.mp3` |
+| 4 Suburbs | Gravel Morning.mp3 | `public/audio/suburbs_theme.mp3` |
+| 5 Downtown | Dust Devil Downtown.mp3 | `public/audio/downtown_theme.mp3` |
 
 ## Play
 
@@ -68,9 +73,19 @@ After uploading, test the embedded player on the itch page (not just a local pre
 
 ## Controls
 
+**Desktop**
+
 - **WASD / Arrow keys** — Move the dust devil
+- **Tab** — Inventory
 - **Shift** — Boost (unlocked in Forest stage)
 - **Space / Enter / Esc** — Skip typing or close thought bubbles
+
+**Mobile browser**
+
+- **Joystick** (lower-left) — Move
+- **Boost** (lower-right, Forest+) — Hold to boost
+- **Tap Inventory** (top-right) — Collected items
+- **Tap dialogue** — Continue story beats
 
 ## Goal
 

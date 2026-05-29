@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { LEVELS, OBJECTS, STORY } from '../data/loader';
 import {
   STAGE_ORDER,
+  STAGE_TITLES,
   type GameState,
   type StageId,
 } from '../utils/constants';
+import { hintsForDevice } from '../utils/device';
 import { AbsorptionSystem } from './AbsorptionSystem';
 import { AudioManager } from './AudioManager';
 import { CameraController } from './CameraController';
@@ -15,12 +17,17 @@ import { SceneManager } from './SceneManager';
 import { SpatialGrid } from './SpatialGrid';
 import { StageManager } from './StageManager';
 import { StoryManager } from './StoryManager';
+import { PickupInventory } from './PickupInventory';
 import { HUD } from '../ui/HUD';
+import { InventoryPanel } from '../ui/InventoryPanel';
 import { ThoughtBubble } from '../ui/ThoughtBubble';
+import { TouchControls } from '../ui/TouchControls';
 import { UIManager } from '../ui/UIManager';
 import { modelLoader } from './ModelLoader';
 import { collectModelIds } from './PropFactory';
 import { groundTextureLoader } from './GroundTextureLoader';
+import { DowntownTraffic } from './DowntownTraffic';
+import { DesertUfo } from './DesertUfo';
 
 export class Game {
   private sceneManager: SceneManager;
@@ -35,7 +42,12 @@ export class Game {
   private story: StoryManager;
   private ui: UIManager;
   private hud: HUD;
+  private inventory: PickupInventory;
+  private inventoryPanel: InventoryPanel;
   private bubble: ThoughtBubble;
+  private touchControls: TouchControls;
+  private downtownTraffic: DowntownTraffic;
+  private desertUfo: DesertUfo;
 
   private state: GameState = 'title';
   private stageIndex = 0;
@@ -62,19 +74,42 @@ export class Game {
     this.audio = new AudioManager();
     this.ui = new UIManager(container);
     this.hud = new HUD(container);
+    this.inventory = new PickupInventory();
+    this.inventoryPanel = new InventoryPanel(container, (open) => {
+      this.syncInputEnabled(!open);
+      this.hud.setInventorySignVisible(!open);
+      this.touchControls.setEnabled(!open);
+    });
     this.bubble = new ThoughtBubble(container);
+    this.touchControls = new TouchControls(container, this.input);
+    this.downtownTraffic = new DowntownTraffic(this.sceneManager.scene);
+    this.desertUfo = new DesertUfo(this.sceneManager.scene);
+
+    this.inventoryPanel.setCloseHint(hintsForDevice().inventoryClose);
+    this.bubble.updateHint();
+
+    this.hud.onInventoryTap(() => {
+      this.input.requestInventoryToggle();
+    });
+
+    this.bubble.onTap(() => {
+      this.input.requestDismiss();
+      this.handleBubbleDismissFromTap();
+    });
 
     this.story = new StoryManager(
       STORY,
       (text, pauseInput) => {
         this.pauseInputForStory = pauseInput;
         this.input.enabled = !pauseInput;
+        this.touchControls.setEnabled(!pauseInput);
         this.audio.playUiPop();
         this.bubble.show(text, () => {
           this.story.onBubbleDismissed();
           if (!this.story.isShowing()) {
             this.pauseInputForStory = false;
             this.input.enabled = true;
+            this.syncTouchControlsEnabled();
           }
         });
       },
@@ -86,13 +121,7 @@ export class Game {
     this.sceneManager.scene.add(this.player.group);
     this.audio.init();
 
-    window.addEventListener('click', () => {
-      this.audio.resume();
-      if (this.bubble.isVisible()) {
-        if (this.bubble.isTyping()) this.bubble.skip();
-        else this.bubble.dismiss();
-      }
-    });
+    container.addEventListener('pointerup', (e) => this.onContainerPointerUp(e));
 
     this.ui.showTitle(
       () => void this.beginGame(),
@@ -100,6 +129,40 @@ export class Game {
     );
 
     this.loop();
+  }
+
+  private onContainerPointerUp(e: PointerEvent): void {
+    const target = e.target as HTMLElement;
+    if (target.closest('.touch-controls')) return;
+    if (target.closest('.hud-inventory-sign--mobile')) return;
+    if (target.closest('.thought-bubble-inner')) return;
+    if (target.closest('.ui-overlay .screen')) return;
+    if (target.closest('.inventory-panel')) return;
+
+    this.audio.resume();
+    if (this.bubble.isVisible()) {
+      this.input.requestDismiss();
+      this.handleBubbleDismissFromTap();
+    }
+  }
+
+  private handleBubbleDismissFromTap(): void {
+    if (!this.bubble.isVisible()) return;
+    if (this.bubble.isTyping()) this.bubble.skip();
+    else this.bubble.dismiss();
+  }
+
+  private syncTouchControlsEnabled(): void {
+    const allow =
+      this.state === 'playing' &&
+      !this.inventoryPanel.isOpen &&
+      !this.pauseInputForStory;
+    this.touchControls.setEnabled(allow);
+  }
+
+  private playingHint(boost: boolean): string {
+    const hints = hintsForDevice();
+    return boost ? hints.playingBoost : hints.playing;
   }
 
   private async beginGame(): Promise<void> {
@@ -112,6 +175,9 @@ export class Game {
 
   private startGame(): void {
     this.stageIndex = 0;
+    this.inventory.reset();
+    this.inventoryPanel.hide();
+    this.touchControls.hide();
     void this.startStage(STAGE_ORDER[0]);
   }
 
@@ -123,27 +189,53 @@ export class Game {
     this.exitOpened = false;
     this.boostAnnounced = false;
     this.absorption.clear();
+    this.downtownTraffic.dispose();
+    this.desertUfo.dispose();
     this.stageManager.clear();
+    this.particles.resetFleeTrails();
+    this.inventoryPanel.hide();
+    this.touchControls.hide();
 
     await this.stageManager.loadAsync(level, OBJECTS, stageId);
+    if (stageId === 'downtown') {
+      this.downtownTraffic.build(level.width, level.depth);
+    }
+    if (stageId === 'desert') {
+      this.desertUfo.build(
+        this.stageManager.playableHalfX,
+        this.stageManager.playableHalfZ
+      );
+    }
     this.player.reset(
       level.playerStart.x,
       level.playerStart.z,
       level.minSizeClass,
       level.growthFactor
     );
-    this.player.setBounds(level.width / 2 - 2, level.depth / 2 - 2);
+    this.player.setBounds(
+      this.stageManager.playableHalfX,
+      this.stageManager.playableHalfZ
+    );
     this.cameraController.repositionImmediate(this.player.position);
     this.cameraController.setPlayerRadius(this.player.radius);
 
     this.input.boostEnabled = level.enableBoost ?? false;
+    this.touchControls.setBoostVisible(!!level.enableBoost);
     this.story.setStage(stageId);
     this.story.resetStage();
 
     this.ui.showStageIntro(stageId, () => {
       this.state = 'playing';
       this.hud.show();
-      this.hud.setHint('WASD to swirl · Absorb things smaller than you');
+      this.hud.setLevel(
+        this.stageIndex + 1,
+        STAGE_TITLES[stageId],
+        STAGE_ORDER.length
+      );
+      this.hud.setInventorySignVisible(true);
+      this.hud.setHint(this.playingHint(!!level.enableBoost));
+      this.touchControls.setPlayingVisible(true);
+      this.syncTouchControlsEnabled();
       this.audio.startMusic(stageId, this.stageIndex);
       this.story.fire({ type: 'stage_start' });
 
@@ -160,6 +252,11 @@ export class Game {
     this.audio.playAbsorb(prop.mass);
     this.particles.spawnPuff(this.sceneManager.scene, this.player.position.clone());
     this.hud.flashAbsorb(prop.mass);
+    this.hud.showPickupLabel(prop.type);
+    this.inventory.add(prop.type);
+    if (this.inventoryPanel.isOpen) {
+      this.inventoryPanel.render(this.inventory);
+    }
     this.shakeIntensity = 0.15;
 
     if (!this.firstPickup) {
@@ -191,9 +288,12 @@ export class Game {
 
   private finishGame(): void {
     this.state = 'credits';
+    this.inventoryPanel.hide();
+    this.touchControls.hide();
+    this.input.enabled = true;
     this.hud.hide();
     this.audio.stopMusic();
-    this.ui.showCredits(STORY.ending, () => {
+    this.ui.showCredits(STORY.ending, STORY.credits ?? [], STORY.musicBy, () => {
       this.stageManager.clear();
       this.ui.showTitle(
         () => void this.beginGame(),
@@ -205,7 +305,11 @@ export class Game {
 
   private completeStage(): void {
     this.state = 'stage_complete';
+    this.inventoryPanel.hide();
+    this.touchControls.hide();
+    this.input.enabled = true;
     this.hud.hide();
+    this.hud.setInventorySignVisible(false);
     this.audio.stopMusic();
     const level = this.stageManager.level!;
     this.ui.showStageComplete(level, this.player.mass, this.elapsedSec, () => {
@@ -226,8 +330,33 @@ export class Game {
     }
   }
 
+  private syncInputEnabled(allowMovement: boolean): void {
+    this.input.enabled =
+      allowMovement && !this.inventoryPanel.isOpen && !this.pauseInputForStory;
+    this.syncTouchControlsEnabled();
+  }
+
+  private handleInventoryToggle(): void {
+    if (!this.input.consumeInventoryToggle()) return;
+    if (this.bubble.isVisible()) return;
+
+    const opening = !this.inventoryPanel.isOpen;
+    this.inventoryPanel.toggle();
+    if (opening) this.inventoryPanel.render(this.inventory);
+    this.syncInputEnabled(!this.inventoryPanel.isOpen);
+  }
+
   private updatePlaying(dt: number): void {
     this.handleBubbleDismiss();
+    this.handleInventoryToggle();
+
+    if (this.inventoryPanel.isOpen) {
+      const level = this.stageManager.level;
+      if (level) {
+        this.hud.update(this.player.mass, level, this.elapsedSec, this.stageManager.exitOpen);
+      }
+      return;
+    }
 
     if (!this.pauseInputForStory && !this.bubble.isVisible()) {
       this.player.update(this.input, dt);
@@ -238,10 +367,20 @@ export class Game {
       this.particles.spawnTrail(this.player.position, move.x, move.z);
     }
 
-    this.absorption.update(this.player, this.stageManager.props, dt, {
-      onAbsorb: (prop) => this.onAbsorb(prop),
-      onBounce: () => {},
-    });
+    this.absorption.update(
+      this.player,
+      this.stageManager.props,
+      dt,
+      {
+        onAbsorb: (prop) => this.onAbsorb(prop),
+        onBounce: () => {},
+        onFleeTrail: (prop, velX, velZ, variant) => {
+          this.particles.spawnFleeTrail(prop.id, prop.position, velX, velZ, dt, variant);
+        },
+      },
+      this.stageManager.playableHalfX,
+      this.stageManager.playableHalfZ
+    );
 
     this.particles.syncOrbiters(
       [...this.absorption.orbitingProps],
@@ -261,6 +400,9 @@ export class Game {
       this.cameraController.camera.position.z += (Math.random() - 0.5) * this.shakeIntensity;
       this.shakeIntensity *= 0.85;
     }
+
+    this.downtownTraffic.update(dt);
+    this.desertUfo.update(dt);
 
     this.elapsedSec += dt;
     const level = this.stageManager.level;
@@ -288,6 +430,8 @@ export class Game {
     cancelAnimationFrame(this.rafId);
     this.player.vortex.dispose();
     this.particles.dispose();
+    this.downtownTraffic.dispose();
+    this.desertUfo.dispose();
     this.sceneManager.dispose();
   }
 }
