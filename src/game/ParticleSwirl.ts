@@ -30,8 +30,8 @@ export class ParticleSwirl {
       this.debrisMeshes.push(mesh);
     }
 
-    const trailGeo = new THREE.PlaneGeometry(0.25, 0.25);
-    for (let i = 0; i < 12; i++) {
+    const trailGeo = new THREE.PlaneGeometry(0.3, 0.3);
+    for (let i = 0; i < 28; i++) {
       const mat = new THREE.MeshBasicMaterial({
         color: 0xd4b896,
         transparent: true,
@@ -102,21 +102,48 @@ export class ParticleSwirl {
     }
   }
 
-  spawnTrail(pos: THREE.Vector3, moveX: number, moveZ: number): void {
-    const m = this.trailPool[this.trailIndex % this.trailPool.length];
-    this.trailIndex++;
-    m.position.set(pos.x - moveX * 0.05, 0.08, pos.z - moveZ * 0.05);
-    (m.material as THREE.MeshBasicMaterial).opacity = 0.35;
-    m.scale.setScalar(0.8);
-    let life = 0.5;
-    const fade = () => {
-      life -= 0.016;
-      (m.material as THREE.MeshBasicMaterial).opacity = life * 0.5;
-      m.scale.multiplyScalar(1.02);
-      if (life > 0) requestAnimationFrame(fade);
-      else (m.material as THREE.MeshBasicMaterial).opacity = 0;
-    };
-    fade();
+  /** Ground dust left behind the dust devil as it moves. */
+  spawnTrail(
+    pos: THREE.Vector3,
+    velX: number,
+    velZ: number,
+    playerRadius = 0.4
+  ): void {
+    const speed = Math.sqrt(velX * velX + velZ * velZ);
+    if (speed < 0.8) return;
+
+    const nx = velX / speed;
+    const nz = velZ / speed;
+    const spread = 0.15 + playerRadius * 0.12;
+    const puffCount = speed > 5 ? 2 : 1;
+
+    for (let p = 0; p < puffCount; p++) {
+      const m = this.trailPool[this.trailIndex % this.trailPool.length];
+      this.trailIndex++;
+      const side = (p - (puffCount - 1) * 0.5) * spread;
+      const back = 0.2 + playerRadius * 0.35 + p * 0.08;
+      m.position.set(
+        pos.x - nx * back - nz * side,
+        0.05 + Math.random() * 0.06,
+        pos.z - nz * back + nx * side
+      );
+      m.rotation.z = Math.atan2(nx, nz) + (Math.random() - 0.5) * 0.4;
+      const mat = m.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.28 + Math.min(0.2, speed * 0.02);
+      mat.color.setHSL(0.09 + Math.random() * 0.04, 0.35, 0.62);
+      const scale = 0.55 + playerRadius * 0.35 + Math.random() * 0.25;
+      m.scale.setScalar(scale);
+
+      let life = 0.55 + Math.random() * 0.25;
+      const fade = () => {
+        life -= 0.016;
+        mat.opacity = life * 0.45;
+        m.scale.multiplyScalar(1.025);
+        if (life > 0) requestAnimationFrame(fade);
+        else mat.opacity = 0;
+      };
+      fade();
+    }
   }
 
   /** Small dust/dirt puffs left behind fleeing animals. */

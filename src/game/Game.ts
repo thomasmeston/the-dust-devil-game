@@ -216,8 +216,12 @@ export class Game {
       this.stageManager.playableHalfX,
       this.stageManager.playableHalfZ
     );
-    this.cameraController.repositionImmediate(this.player.position);
+    this.cameraController.resetStageZoom();
     this.cameraController.setPlayerRadius(this.player.radius);
+    this.cameraController.repositionImmediate(this.player.position);
+    this.cameraController.updateFrustum(
+      this.sceneManager.width / this.sceneManager.height
+    );
 
     this.input.boostEnabled = level.enableBoost ?? false;
     this.touchControls.setBoostVisible(!!level.enableBoost);
@@ -362,9 +366,13 @@ export class Game {
       this.player.update(this.input, dt);
     }
 
-    if (this.player.moveSpeed > 3) {
-      const move = this.input.getMovementVector();
-      this.particles.spawnTrail(this.player.position, move.x, move.z);
+    if (this.player.moveSpeed > 1) {
+      this.particles.spawnTrail(
+        this.player.position,
+        this.player.velocity.x,
+        this.player.velocity.z,
+        this.player.radius
+      );
     }
 
     this.absorption.update(

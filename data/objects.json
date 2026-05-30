@@ -21,14 +21,17 @@
   "bicycle": { "sizeClass": "small", "mass": 3, "color": "#2563EB", "model": "bicycle", "shape": "box", "scale": [0.3, 0.8, 1.2], "sfx": "ring" },
   "beehive": { "sizeClass": "small", "mass": 2, "color": "#FBBF24", "model": "beehive", "shape": "cylinder", "scale": [0.5, 0.6, 0.5], "sfx": "buzz" },
   "mailbox": { "sizeClass": "small", "mass": 2, "color": "#1E40AF", "model": "mailbox", "shape": "box", "scale": [0.4, 1, 0.4], "sfx": "clank" },
-  "car": { "sizeClass": "medium", "mass": 10, "color": "#EF4444", "model": "car", "shape": "box", "scale": [1.6, 0.9, 3], "sfx": "honk" },
+  "car": { "sizeClass": "medium", "mass": 10, "color": "#EF4444", "shape": "box", "scale": [1.7, 0.95, 3.2], "sfx": "honk" },
   "shed": { "sizeClass": "large", "mass": 18, "color": "#78350F", "model": "shed", "shape": "box", "scale": [2, 1.8, 2.5], "sfx": "rumble" },
   "playground": { "sizeClass": "large", "mass": 20, "color": "#F97316", "model": "playground", "shape": "box", "scale": [3, 1.5, 3], "sfx": "squeak" },
   "doghouse": { "sizeClass": "medium", "mass": 6, "color": "#A16207", "model": "doghouse", "shape": "box", "scale": [1.2, 1, 1.5], "sfx": "thud" },
   "garden_gnome": { "sizeClass": "tiny", "mass": 1, "color": "#EC4899", "model": "garden_gnome", "shape": "capsule", "scale": [0.25, 0.5, 0.25], "sfx": "tick" },
-  "small_house": { "sizeClass": "large", "mass": 35, "color": "#FDE68A", "model": "small_house", "shape": "box", "scale": [3, 2.5, 3], "sfx": "rumble" },
+  "small_house": { "sizeClass": "large", "mass": 35, "color": "#FDE68A", "shape": "box", "scale": [3.2, 2.8, 3.4], "sfx": "rumble" },
   "pedestrian": { "sizeClass": "tiny", "mass": 1, "color": "#6366F1", "model": "pedestrian", "shape": "capsule", "scale": [0.3, 0.9, 0.3], "sfx": "gasp", "flee": true, "fleeSpeed": 7 },
   "bus": { "sizeClass": "huge", "mass": 40, "color": "#FACC15", "model": "bus", "shape": "box", "scale": [2.2, 2.5, 6], "sfx": "honk" },
   "office_building": { "sizeClass": "huge", "mass": 55, "color": "#94A3B8", "model": "office_building", "shape": "box", "scale": [4, 8, 4], "sfx": "rumble" },
-  "skyscraper": { "sizeClass": "colossal", "mass": 120, "color": "#60A5FA", "model": "skyscraper", "shape": "box", "scale": [6, 18, 6], "sfx": "rumble", "setPiece": true }
+  "skyscraper": { "sizeClass": "colossal", "mass": 120, "color": "#60A5FA", "model": "skyscraper", "shape": "box", "scale": [6, 18, 6], "sfx": "rumble", "setPiece": true },
+  "joshua_tree": { "sizeClass": "medium", "mass": 7, "color": "#7A8B5C", "shape": "cone", "scale": [1.1, 3.4, 1.1], "sfx": "rustle" },
+  "wood_fence": { "sizeClass": "small", "mass": 2.5, "color": "#8B7355", "shape": "box", "scale": [2.4, 0.95, 0.25], "sfx": "thud" },
+  "solar_farm": { "sizeClass": "medium", "mass": 10, "color": "#1E3A5F", "shape": "box", "scale": [5, 1.1, 4], "sfx": "clank" }
 }

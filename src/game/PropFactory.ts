@@ -407,10 +407,327 @@ export function createSnakeMesh(color: string, scale: [number, number, number]):
   return group;
 }
 
-function createCritterMesh(type: string, def: ObjectDef): THREE.Group | null {
+function enablePropShadows(group: THREE.Object3D): void {
+  group.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+}
+
+/** Suburban ranch house — siding, gabled roof, garage, porch, chimney. */
+export function createSuburbanHouseMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const base = new THREE.Color(color);
+  const siding = new THREE.MeshToonMaterial({ color: base });
+  const sidingDark = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#9CA3AF'), 0.22),
+  });
+  const roof = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#7F1D1D'), 0.55),
+  });
+  const trim = new THREE.MeshToonMaterial({ color: '#F5F5F4' });
+  const foundation = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#57534E'), 0.5),
+  });
+  const glass = new THREE.MeshToonMaterial({ color: '#93C5FD' });
+  const door = new THREE.MeshToonMaterial({ color: '#78350F' });
+  const brick = new THREE.MeshToonMaterial({ color: '#9A3412' });
+
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.98, sy * 0.06, sz * 0.92), foundation);
+  slab.position.y = sy * 0.03;
+  group.add(slab);
+
+  const mainH = sy * 0.42;
+  const main = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.72, mainH, sz * 0.62), siding);
+  main.position.set(-sx * 0.06, sy * 0.06 + mainH * 0.5, -sz * 0.04);
+  group.add(main);
+
+  const garageH = sy * 0.34;
+  const garage = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.34, garageH, sz * 0.38), sidingDark);
+  garage.position.set(sx * 0.3, sy * 0.06 + garageH * 0.5, sz * 0.14);
+  group.add(garage);
+
+  const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.28, garageH * 0.78, sz * 0.04), trim);
+  doorPanel.position.set(sx * 0.3, sy * 0.06 + garageH * 0.42, sz * 0.34);
+  group.add(doorPanel);
+
+  const roofY = sy * 0.06 + mainH + sy * 0.08;
+  const roofL = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.4, sy * 0.12, sz * 0.72), roof);
+  roofL.position.set(-sx * 0.22, roofY, -sz * 0.04);
+  roofL.rotation.z = 0.52;
+  group.add(roofL);
+
+  const roofR = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.4, sy * 0.12, sz * 0.72), roof);
+  roofR.position.set(sx * 0.1, roofY, -sz * 0.04);
+  roofR.rotation.z = -0.52;
+  group.add(roofR);
+
+  const garageRoof = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.36, sy * 0.1, sz * 0.42), roof);
+  garageRoof.position.set(sx * 0.3, sy * 0.06 + garageH + sy * 0.05, sz * 0.14);
+  group.add(garageRoof);
+
+  const porch = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.22, sy * 0.05, sz * 0.2), trim);
+  porch.position.set(-sx * 0.06, sy * 0.09, sz * 0.38);
+  group.add(porch);
+
+  const frontDoor = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.1, sy * 0.2, sz * 0.04), door);
+  frontDoor.position.set(-sx * 0.06, sy * 0.22, sz * 0.36);
+  group.add(frontDoor);
+
+  const winGeo = new THREE.BoxGeometry(sx * 0.1, sy * 0.12, sz * 0.03);
+  for (const [wx, wz] of [
+    [-sx * 0.28, -sz * 0.22],
+    [sx * 0.08, -sz * 0.22],
+    [-sx * 0.28, sz * 0.08],
+  ] as [number, number][]) {
+    const win = new THREE.Mesh(winGeo, glass);
+    win.position.set(wx, sy * 0.34, wz);
+    group.add(win);
+  }
+
+  const chimney = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.1, sy * 0.28, sz * 0.1), brick);
+  chimney.position.set(-sx * 0.24, sy * 0.62, -sz * 0.2);
+  group.add(chimney);
+
+  const shrub = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.08, 6, 5), new THREE.MeshToonMaterial({ color: '#166534' }));
+  shrub.position.set(-sx * 0.38, sy * 0.1, sz * 0.32);
+  shrub.scale.set(1.2, 0.7, 1.2);
+  group.add(shrub);
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Suburban sedan — body, cabin, wheels, lights, and glass. */
+export function createSuburbanCarMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const bodyColor = new THREE.Color(color);
+  const paint = new THREE.MeshToonMaterial({ color: bodyColor });
+  const paintDark = new THREE.MeshToonMaterial({
+    color: bodyColor.clone().lerp(new THREE.Color('#1F2937'), 0.35),
+  });
+  const trim = new THREE.MeshToonMaterial({ color: '#E5E7EB' });
+  const glass = new THREE.MeshToonMaterial({ color: '#BFDBFE' });
+  const tire = new THREE.MeshToonMaterial({ color: '#1F2937' });
+  const hub = new THREE.MeshToonMaterial({ color: '#9CA3AF' });
+  const lamp = new THREE.MeshToonMaterial({ color: '#FEF9C3' });
+
+  const wheelR = sy * 0.2;
+  const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, sx * 0.22, 10);
+  const hubGeo = new THREE.CylinderGeometry(wheelR * 0.55, wheelR * 0.55, sx * 0.24, 8);
+  for (const [wx, wz] of [
+    [-sx * 0.42, sz * 0.3],
+    [sx * 0.42, sz * 0.3],
+    [-sx * 0.42, -sz * 0.3],
+    [sx * 0.42, -sz * 0.3],
+  ] as [number, number][]) {
+    const wheel = new THREE.Mesh(wheelGeo, tire);
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(wx, wheelR, wz);
+    group.add(wheel);
+
+    const cap = new THREE.Mesh(hubGeo, hub);
+    cap.rotation.z = Math.PI / 2;
+    cap.position.set(wx, wheelR, wz);
+    group.add(cap);
+  }
+
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.92, sy * 0.28, sz * 0.88), paintDark);
+  chassis.position.y = sy * 0.2;
+  group.add(chassis);
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.88, sy * 0.32, sz * 0.72), paint);
+  body.position.set(0, sy * 0.38, -sz * 0.04);
+  group.add(body);
+
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.78, sy * 0.3, sz * 0.42), paint);
+  cabin.position.set(0, sy * 0.62, -sz * 0.06);
+  group.add(cabin);
+
+  const windshield = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.7, sy * 0.22, sz * 0.06), glass);
+  windshield.position.set(0, sy * 0.64, sz * 0.16);
+  windshield.rotation.x = -0.35;
+  group.add(windshield);
+
+  const rearGlass = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.68, sy * 0.18, sz * 0.05), glass);
+  rearGlass.position.set(0, sy * 0.6, -sz * 0.28);
+  rearGlass.rotation.x = 0.25;
+  group.add(rearGlass);
+
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.82, sy * 0.12, sz * 0.28), paint);
+  hood.position.set(0, sy * 0.46, sz * 0.34);
+  group.add(hood);
+
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.86, sy * 0.1, sz * 0.08), trim);
+  bumperF.position.set(0, sy * 0.18, sz * 0.46);
+  group.add(bumperF);
+
+  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.86, sy * 0.1, sz * 0.08), trim);
+  bumperR.position.set(0, sy * 0.18, -sz * 0.46);
+  group.add(bumperR);
+
+  for (const side of [-1, 1] as const) {
+    const head = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.14, sy * 0.1, sz * 0.06), lamp);
+    head.position.set(side * sx * 0.34, sy * 0.3, sz * 0.42);
+    group.add(head);
+
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.12, sy * 0.08, sz * 0.05), new THREE.MeshToonMaterial({ color: '#DC2626' }));
+    tail.position.set(side * sx * 0.34, sy * 0.32, -sz * 0.42);
+    group.add(tail);
+  }
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Joshua tree — forked trunk with spiky yucca crowns. */
+export function createJoshuaTreeMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const bark = new THREE.MeshToonMaterial({
+    color: new THREE.Color('#6B5B45').lerp(new THREE.Color(color), 0.25),
+  });
+  const leafMat = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const leafDark = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#3D4A32'), 0.35),
+  });
+
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(sx * 0.14, sx * 0.2, sy * 0.55, 6), bark);
+  trunk.position.y = sy * 0.28;
+  group.add(trunk);
+
+  const addCrown = (x: number, y: number, z: number, rotZ: number): void => {
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(sx * 0.07, sx * 0.09, sy * 0.22, 5), bark);
+    arm.position.set(x, y, z);
+    arm.rotation.z = rotZ;
+    arm.rotation.x = 0.35;
+    group.add(arm);
+
+    const cluster = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.32, sy * 0.2, 5), leafMat);
+    cluster.position.set(x + Math.sin(rotZ) * sx * 0.2, y + sy * 0.12, z);
+    cluster.rotation.z = rotZ * 0.4;
+    group.add(cluster);
+
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.22, sy * 0.14, 4), leafDark);
+    spike.position.set(x - sx * 0.08, y + sy * 0.08, z + sz * 0.06);
+    spike.rotation.y = 0.6;
+    group.add(spike);
+  };
+
+  addCrown(sx * 0.22, sy * 0.58, 0, 0.75);
+  addCrown(-sx * 0.2, sy * 0.72, sz * 0.05, -0.85);
+  addCrown(0, sy * 0.88, -sz * 0.08, 0.15);
+
+  const top = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.28, sy * 0.18, 5), leafDark);
+  top.position.y = sy * 0.94;
+  group.add(top);
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Weathered desert fence section — crooked posts and sagging rails. */
+export function createWoodFenceMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const wood = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const woodDark = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#4A3F32'), 0.4),
+  });
+
+  const postGeo = new THREE.BoxGeometry(sx * 0.08, sy * 0.92, sz * 1.4);
+  const postXs = [-sx * 0.46, -sx * 0.15, sx * 0.18, sx * 0.46];
+  const leans = [0.08, -0.04, 0.06, -0.1];
+  for (let i = 0; i < postXs.length; i++) {
+    const post = new THREE.Mesh(postGeo, i % 2 === 0 ? wood : woodDark);
+    post.position.set(postXs[i], sy * 0.46, 0);
+    post.rotation.z = leans[i];
+    if (i === 1) post.scale.y = 0.88;
+    group.add(post);
+  }
+
+  const railGeo = new THREE.BoxGeometry(sx * 0.96, sy * 0.1, sz * 0.55);
+  for (const [y, tilt] of [
+    [sy * 0.68, -0.06],
+    [sy * 0.38, 0.05],
+  ] as [number, number][]) {
+    const rail = new THREE.Mesh(railGeo, wood);
+    rail.position.set(0, y, 0);
+    rail.rotation.z = tilt;
+    group.add(rail);
+  }
+
+  const broken = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.22, sy * 0.14, sz * 0.5), woodDark);
+  broken.position.set(sx * 0.32, sy * 0.1, sz * 0.35);
+  broken.rotation.z = 0.4;
+  broken.rotation.y = 0.5;
+  group.add(broken);
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Solar panel farm — tilted arrays on a metal frame. */
+export function createSolarFarmMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const panelMat = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const frameMat = new THREE.MeshToonMaterial({ color: new THREE.Color('#64748B') });
+  const glintMat = new THREE.MeshToonMaterial({
+    color: new THREE.Color('#7DD3FC').lerp(new THREE.Color(color), 0.5),
+  });
+
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.98, sy * 0.12, sz * 0.92), frameMat);
+  frame.position.y = sy * 0.08;
+  group.add(frame);
+
+  const legGeo = new THREE.CylinderGeometry(sx * 0.03, sx * 0.04, sy * 0.35, 5);
+  for (const [lx, lz] of [
+    [-sx * 0.42, -sz * 0.38],
+    [sx * 0.42, -sz * 0.38],
+    [-sx * 0.42, sz * 0.38],
+    [sx * 0.42, sz * 0.38],
+  ] as [number, number][]) {
+    const leg = new THREE.Mesh(legGeo, frameMat);
+    leg.position.set(lx, sy * 0.2, lz);
+    group.add(leg);
+  }
+
+  const panelGeo = new THREE.BoxGeometry(sx * 0.38, sy * 0.04, sz * 0.32);
+  const rows = 2;
+  const cols = 3;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const panel = new THREE.Mesh(panelGeo, col % 2 === 0 ? panelMat : glintMat);
+      const px = (col - (cols - 1) / 2) * sx * 0.34;
+      const pz = (row - (rows - 1) / 2) * sz * 0.36;
+      panel.position.set(px, sy * 0.42 + row * sy * 0.06, pz);
+      panel.rotation.x = -0.55;
+      group.add(panel);
+    }
+  }
+
+  const box = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.12, sy * 0.18, sz * 0.1), frameMat);
+  box.position.set(-sx * 0.44, sy * 0.14, sz * 0.42);
+  group.add(box);
+
+  enablePropShadows(group);
+  return group;
+}
+
+function createCustomPropMesh(type: string, def: ObjectDef): THREE.Group | null {
   if (type === 'goat') return createSheepMesh(def.color, def.scale);
   if (type === 'tortoise') return createTortoiseMesh(def.color, def.scale);
   if (type === 'snake') return createSnakeMesh(def.color, def.scale);
+  if (type === 'car') return createSuburbanCarMesh(def.color, def.scale);
+  if (type === 'small_house') return createSuburbanHouseMesh(def.color, def.scale);
+  if (type === 'joshua_tree') return createJoshuaTreeMesh(def.color, def.scale);
+  if (type === 'wood_fence') return createWoodFenceMesh(def.color, def.scale);
+  if (type === 'solar_farm') return createSolarFarmMesh(def.color, def.scale);
   return null;
 }
 
@@ -442,18 +759,18 @@ export async function createAbsorbableProp(
   pitch = 0,
   roll = 0
 ): Promise<AbsorbableProp> {
-  const critter = createCritterMesh(type, def);
-  const mesh = critter ?? (await createPropMeshFromDef(def));
+  const custom = createCustomPropMesh(type, def);
+  const mesh = custom ?? (await createPropMeshFromDef(def));
   mesh.rotation.set(pitch, rotation, roll);
   if (pitch !== 0 || roll !== 0) {
     groundAlignMesh(mesh, y);
-  } else if (critter || def.model) {
+  } else if (custom || def.model) {
     groundAlignMesh(mesh, y);
   } else {
     mesh.position.y = def.scale[1] / 2;
   }
   const radius =
-    critter || def.model ? meshRadius(mesh) : Math.max(...def.scale) * 0.6;
+    custom || def.model ? meshRadius(mesh) : Math.max(...def.scale) * 0.6;
   const prop: AbsorbableProp = {
     id: nextPropId++,
     type,

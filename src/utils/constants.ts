@@ -44,6 +44,25 @@ export const BIOME_PALETTES: Record<
 
 export const BASE_RADIUS = 0.4;
 export const GROWTH_FACTOR = 0.15;
+
+/** Orthographic zoom — tight at level start, pulls back as radius grows. */
+export const CAMERA_FRUSTUM_BASE = 12.5;
+export const CAMERA_FRUSTUM_PER_RADIUS = 6;
+
+/** Pre-zoom camera curve (frustum 18 + radius × 2.5) for visual size matching. */
+const LEGACY_CAMERA_FRUSTUM_BASE = 18;
+const LEGACY_CAMERA_FRUSTUM_PER_RADIUS = 2.5;
+
+export function cameraFrustumHalfSize(radius: number): number {
+  return CAMERA_FRUSTUM_BASE + radius * CAMERA_FRUSTUM_PER_RADIUS;
+}
+
+/** Scales the dust devil mesh so on-screen size matches the old camera at any radius. */
+export function visualScaleMultiplier(radius: number): number {
+  const legacy =
+    LEGACY_CAMERA_FRUSTUM_BASE + radius * LEGACY_CAMERA_FRUSTUM_PER_RADIUS;
+  return legacy / cameraFrustumHalfSize(radius);
+}
 export const BASE_SPEED = 8;
 export const PULL_RADIUS_MULT = 1.25;
 export const MAX_ORBIT_SLOTS = 30;

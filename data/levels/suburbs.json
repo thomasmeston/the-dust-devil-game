@@ -13,15 +13,15 @@
   "props": [
     { "type": "garden_gnome", "x": -30, "z": -30 }, { "type": "garden_gnome", "x": -28, "z": -25 }, { "type": "garden_gnome", "x": -32, "z": -28 },
     { "type": "mailbox", "x": -25, "z": -30 }, { "type": "doghouse", "x": -22, "z": -25 },
-    { "type": "car", "x": -15, "z": -20 }, { "type": "car", "x": -10, "z": -15 }, { "type": "car", "x": -5, "z": -25 },
+    { "type": "car", "x": -15, "z": -20, "rotation": 0.2 }, { "type": "car", "x": -10, "z": -15, "rotation": 1.1 }, { "type": "car", "x": -5, "z": -25, "rotation": 2.4 },
     { "type": "pedestrian", "x": -18, "z": -18 }, { "type": "pedestrian", "x": -12, "z": -22 }, { "type": "pedestrian", "x": -8, "z": -10 },
     { "type": "shed", "x": 0, "z": -15 }, { "type": "shed", "x": 5, "z": -20 },
-    { "type": "playground", "x": 10, "z": -5 }, { "type": "car", "x": 15, "z": -10 },
-    { "type": "small_house", "x": -5, "z": 0 }, { "type": "small_house", "x": 10, "z": 5 },
-    { "type": "car", "x": 20, "z": 0 }, { "type": "car", "x": 0, "z": 15 },
+    { "type": "playground", "x": 10, "z": -5 }, { "type": "car", "x": 15, "z": -10, "rotation": 0.7 },
+    { "type": "small_house", "x": -5, "z": 0, "rotation": 0.15 }, { "type": "small_house", "x": 10, "z": 5, "rotation": 1.57 },
+    { "type": "car", "x": 20, "z": 0, "rotation": 3.0 }, { "type": "car", "x": 0, "z": 15, "rotation": 1.8 },
     { "type": "pedestrian", "x": 5, "z": 10 }, { "type": "pedestrian", "x": 15, "z": 15 },
     { "type": "doghouse", "x": 25, "z": 10 }, { "type": "garden_gnome", "x": 18, "z": 20 },
-    { "type": "small_house", "x": 20, "z": 25 }, { "type": "car", "x": 30, "z": 20 },
+    { "type": "small_house", "x": 20, "z": 25, "rotation": 0.9 }, { "type": "car", "x": 30, "z": 20, "rotation": 2.2 },
     { "type": "pedestrian", "x": 28, "z": 28 }, { "type": "playground", "x": -10, "z": 20 }
   ]
 }

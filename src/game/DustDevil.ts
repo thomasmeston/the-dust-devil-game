@@ -98,7 +98,7 @@ export class DustDevil {
     this.lastMoveX = move.x * speed;
     this.lastMoveZ = move.z * speed;
 
-    this.vortex.update(dt, move.x, move.z, this.moveSpeed, this.isBoosting);
+    this.vortex.update(dt, this.velocity.x, this.velocity.z, this.moveSpeed, this.isBoosting);
     this.group.position.copy(this.position);
   }
 }

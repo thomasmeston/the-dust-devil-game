@@ -1,21 +1,34 @@
 import * as THREE from 'three';
-import { ISOMETRIC_PITCH, ISOMETRIC_YAW, lerp } from '../utils/constants';
+import {
+  CAMERA_FRUSTUM_BASE,
+  CAMERA_FRUSTUM_PER_RADIUS,
+  ISOMETRIC_PITCH,
+  ISOMETRIC_YAW,
+  lerp,
+} from '../utils/constants';
 
 export class CameraController {
   readonly camera: THREE.OrthographicCamera;
   private target = new THREE.Vector3();
   private currentPos = new THREE.Vector3();
-  private baseFrustum = 18;
+  private baseFrustum = CAMERA_FRUSTUM_BASE;
   private playerRadius = 1;
+  private frustumSize = CAMERA_FRUSTUM_BASE;
 
   constructor(aspect: number) {
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
-    this.updateFrustum(aspect);
+    this.applyFrustumSize(this.frustumSize, aspect);
     this.repositionImmediate(new THREE.Vector3(0, 0, 0));
   }
 
-  updateFrustum(aspect: number): void {
-    const size = this.baseFrustum + this.playerRadius * 2.5;
+  private targetFrustumSize(): number {
+    return (
+      this.baseFrustum +
+      this.playerRadius * CAMERA_FRUSTUM_PER_RADIUS
+    );
+  }
+
+  private applyFrustumSize(size: number, aspect: number): void {
     this.camera.left = (-size * aspect) / 2;
     this.camera.right = (size * aspect) / 2;
     this.camera.top = size / 2;
@@ -23,8 +36,24 @@ export class CameraController {
     this.camera.updateProjectionMatrix();
   }
 
+  updateFrustum(aspect: number, dt?: number): void {
+    const target = this.targetFrustumSize();
+    if (dt !== undefined && dt > 0) {
+      this.frustumSize = lerp(this.frustumSize, target, 1 - Math.pow(0.015, dt));
+    } else {
+      this.frustumSize = target;
+    }
+    this.applyFrustumSize(this.frustumSize, aspect);
+  }
+
   setPlayerRadius(radius: number): void {
     this.playerRadius = radius;
+  }
+
+  /** Tight zoom at level start; call when a new stage loads. */
+  resetStageZoom(): void {
+    this.baseFrustum = CAMERA_FRUSTUM_BASE;
+    this.frustumSize = this.targetFrustumSize();
   }
 
   repositionImmediate(target: THREE.Vector3): void {
@@ -52,10 +81,10 @@ export class CameraController {
     this.currentPos.z = lerp(this.currentPos.z, desired.z, 1 - Math.pow(0.001, dt));
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(target.x, target.y + 0.5, target.z);
-    this.updateFrustum(aspect);
+    this.updateFrustum(aspect, dt);
   }
 
   pullBack(extra: number): void {
-    this.baseFrustum = 18 + extra;
+    this.baseFrustum = CAMERA_FRUSTUM_BASE + extra;
   }
 }
