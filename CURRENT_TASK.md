@@ -1,44 +1,54 @@
 # Current task — The Little Dust Devil
 
-> **Owner:** Cody (Agent OS coding agent)
-> **Handoff:** `agent-os/memory/handoffs/H-001-dust-devil-cody.md`
-> **Last updated:** 2026-05-28
+> **Owner:** Cody (Agent OS) / Thomas  
+> **Handoff:** `agent-os/memory/handoffs/H-001-dust-devil-cody.md`  
+> **Agents:** See `AGENTS.md` (Cursor, Antigravity, Cloud Cody)  
+> **Last updated:** 2026-06-07
 
 ## Goal
 
-Continue refining the game before itch.io publish. Gameplay polish and feel take priority over new hosting work (GitHub Pages is live).
+Continue refining gameplay feel before itch.io publish. Polish and play-test take priority over new hosting work (GitHub Pages is live).
 
 ## Status
 
-**In progress** — uncommitted local changes from prior session (not yet pushed):
+**Checkpoint saved** — `main` synced with `origin/main` at `dd94ac2` (2026-05-29).
 
-- Border mountain ring; player + flee props clamped to inner bounds
-- Jackrabbit sand dust trail when fleeing
-- Procedural goat (horns, head, four legs on ground) + dirt trail when fleeing
+**Committed and pushed (includes prior local-only work):**
 
-## Next steps (Thomas-directed)
+- Border mountain ring + playable bounds (`src/utils/bounds.ts`, `src/game/BorderMountains.ts`, `StageManager.ts`)
+- Jackrabbit sand dust trail + goat dirt trail (`ParticleSwirl.ts`, `AbsorptionSystem.ts`, `Game.ts`)
+- Procedural goat mesh (horns, legs) + procedural level props (`PropFactory.ts`, `data/objects.json`, level JSON)
+- Dust devil vortex visual polish (`DustDevilVortex.ts`, `CameraController.ts`)
 
-1. Play-test desert (rabbits) and mountain (goats) — confirm borders and trails feel right
-2. Decide whether to commit uncommitted work (include untracked `BorderMountains.ts`, `bounds.ts`)
-3. Pick from backlog when ready (loading screen, stages 3–5 music, compression, itch upload)
+**Added in checkpoint commit (2026-06-07):**
 
-## Verification (2026-05-28)
+- `AGENTS.md` — harness-neutral handoff for Cursor, Antigravity, and Cloud Cody
+- Refreshed `CURRENT_TASK.md` (this file)
 
-- `npm run build` — PASS
-- Dev smoke — title → desert loads, no console errors (`npm run dev` at http://localhost:5173)
-- Border mountains only appear near map edges (ortho frustum ~±18 from player); walk to perimeter to judge feel
+## Next steps
 
-## Verification
+1. **Play-test desert** (rabbits) and **mountain** (goats) — borders, flee behavior, trails, procedural props
+2. Note any feel tweaks in a short bullet list here or fix inline
+3. When satisfied: consider itch.io packaging (`npm run package:itch`) or backlog items below
+
+## Backlog (optional)
+
+- Loading screen during ~17 MB asset preload
+- Asset compression (smaller JPGs / Draco GLBs)
+- Touch/mobile polish or "keyboard required" on itch page
+- itch.io upload when ready
+
+## Verification (last known good: 2026-05-29)
 
 ```bash
-npm run build
-npm run dev    # http://localhost:5173
+npm run build   # PASS
+npm run dev     # http://localhost:5173 — title -> desert, no console errors
 ```
 
-Play affected stages in browser before saying done.
+Re-run build + dev smoke after any new changes. Play affected stages before saying done.
 
 ## Constraints
 
-- Only commit when Thomas explicitly asks
+- Only commit when Thomas explicitly asks (this checkpoint commit was requested)
 - Minimize diff; match existing patterns in `src/game/`
 - Production build must keep relative paths (`base: './'`, `publicUrl()`)
