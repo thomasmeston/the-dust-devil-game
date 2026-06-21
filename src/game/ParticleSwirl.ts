@@ -237,6 +237,98 @@ export class ParticleSwirl {
     }
   }
 
+  spawnWindGust(scene: THREE.Scene, pos: THREE.Vector3, dirX: number, dirZ: number): void {
+    const count = 15;
+    for (let i = 0; i < count; i++) {
+      const geo = new THREE.SphereGeometry(0.18 + Math.random() * 0.25, 5, 4);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xefecdb,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false,
+      });
+      const puff = new THREE.Mesh(geo, mat);
+
+      puff.position.copy(pos);
+      const perpendicularX = -dirZ;
+      const perpendicularZ = dirX;
+      const spreadOffset = (Math.random() - 0.5) * 8.0;
+      puff.position.x += perpendicularX * spreadOffset - dirX * (Math.random() * 2.0);
+      puff.position.z += perpendicularZ * spreadOffset - dirZ * (Math.random() * 2.0);
+      puff.position.y = 0.2 + Math.random() * 2.2;
+
+      scene.add(puff);
+
+      let life = 0.5 + Math.random() * 0.35;
+      const speed = 12 + Math.random() * 8;
+      const vx = dirX * speed;
+      const vz = dirZ * speed;
+
+      const animate = () => {
+        life -= 0.016;
+        puff.position.x += vx * 0.016;
+        puff.position.z += vz * 0.016;
+        puff.scale.multiplyScalar(1.02);
+        (puff.material as THREE.MeshBasicMaterial).opacity = life * 0.85;
+        if (life > 0) requestAnimationFrame(animate);
+        else {
+          scene.remove(puff);
+          geo.dispose();
+          mat.dispose();
+        }
+      };
+      animate();
+    }
+  }
+
+  spawnSweat(scene: THREE.Scene, pos: THREE.Vector3): void {
+    const geo = new THREE.IcosahedronGeometry(0.045, 1);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+    const drop = new THREE.Mesh(geo, mat);
+    drop.scale.set(0.5, 1.8, 0.5);
+
+    drop.position.copy(pos);
+    drop.position.y = 0.45;
+
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.4 + Math.random() * 0.5;
+    const vx = Math.cos(angle) * speed;
+    const vz = Math.sin(angle) * speed;
+    let vy = 0.6 + Math.random() * 0.5;
+
+    scene.add(drop);
+
+    let life = 0.45 + Math.random() * 0.2;
+    const animate = () => {
+      life -= 0.016;
+      drop.position.x += vx * 0.016;
+      drop.position.z += vz * 0.016;
+      drop.position.y += vy * 0.016;
+      vy -= 2.0 * 0.016;
+
+      const speedSq = vx * vx + vy * vy + vz * vz;
+      if (speedSq > 0.0001) {
+        const vel = new THREE.Vector3(vx, vy, vz).normalize();
+        drop.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vel);
+      }
+
+      (drop.material as THREE.MeshBasicMaterial).opacity = Math.max(0, life * 2.0);
+
+      if (life > 0 && drop.position.y > 0) requestAnimationFrame(animate);
+      else {
+        scene.remove(drop);
+        geo.dispose();
+        mat.dispose();
+      }
+    };
+    animate();
+  }
+
   dispose(): void {
     for (const p of this.debrisMeshes) {
       this.scene.remove(p);

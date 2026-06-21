@@ -84,11 +84,14 @@ class GroundTextureLoader {
       normalClone.needsUpdate = true;
     }
 
+    const finalColor = stageId === 'desert' ? new THREE.Color(0xffffff) : new THREE.Color(tint);
+    const nScale = stageId === 'desert' ? 0.95 : 0.25;
+
     return new THREE.MeshToonMaterial({
       map: diffClone,
       normalMap: normalClone,
-      normalScale: new THREE.Vector2(0.25, 0.25),
-      color: new THREE.Color(tint),
+      normalScale: new THREE.Vector2(nScale, nScale),
+      color: finalColor,
     });
   }
 }

@@ -1,7 +1,7 @@
 # Agents — The Little Dust Devil
 
 Harness-neutral handoff for **Cursor (Cody)**, **Google Antigravity**, and **Cloud Cody**.  
-Read this file and `CURRENT_TASK.md` at the start of every session.
+Read this file, `HANDOFF.md`, and `CURRENT_TASK.md` at the start of every session.
 
 ## Project
 
@@ -16,10 +16,11 @@ Read this file and `CURRENT_TASK.md` at the start of every session.
 ## Session start (any harness)
 
 1. **`CURRENT_TASK.md`** — active goal, status, next step (source of truth for "where we left off")
-2. **`README.md`** — play, build, deploy, controls
-3. **`data/story/script.json`** — narrative beats
-4. **`data/levels/*.json`** — stage definitions
-5. **`src/game/Game.ts`** — main loop and systems entry
+2. **`HANDOFF.md`** — architecture, WIP index, session rituals (cross-machine / cross-agent)
+3. **`README.md`** — play, build, deploy, controls
+4. **`data/story/script.json`** — narrative beats
+5. **`data/levels/*.json`** — stage definitions
+6. **`src/game/Game.ts`** — main loop and systems entry
 
 Then run `git pull` and `git status` before editing.
 
@@ -98,9 +99,9 @@ Merge to `main` when play-tested and ready for live deploy.
 
 ## Cross-machine / cross-harness continuity
 
-1. Update `CURRENT_TASK.md` before ending a session
+1. Update `CURRENT_TASK.md` before ending a session (and `HANDOFF.md` if WIP scope or architecture changed)
 2. Commit and push (prefer `wip/*` for unfinished work)
-3. On the next machine or harness: `git pull`, read `CURRENT_TASK.md`, continue
+3. On the next machine or harness: `git pull`, read `HANDOFF.md` + `CURRENT_TASK.md`, continue
 
 Chat history does not transfer between Cursor, Antigravity, or laptops.
 

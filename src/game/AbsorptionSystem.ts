@@ -16,6 +16,13 @@ export interface AbsorptionCallbacks {
     velZ: number,
     variant: 'dust' | 'dirt'
   ) => void;
+  onWindPushback?: (
+    prop: AbsorbableProp,
+    dirX: number,
+    dirZ: number
+  ) => void;
+  onPop?: (prop: AbsorbableProp) => void;
+  onSweat?: (prop: AbsorbableProp) => void;
 }
 
 export class AbsorptionSystem {
@@ -52,7 +59,7 @@ export class AbsorptionSystem {
     if (prop.type === 'snake') {
       updateSnakeWiggle(prop.mesh, prop.wobblePhase, intensity);
     } else {
-      updateTortoiseHeadMove(prop.mesh, prop.wobblePhase, intensity);
+      updateTortoiseHeadMove(prop.mesh, prop.wobblePhase, intensity, prop.retractProgress ?? 0);
     }
   }
 
@@ -86,31 +93,168 @@ export class AbsorptionSystem {
     for (const prop of props) {
       if (prop.state === 'absorbed') continue;
 
+      // Handle gust of wind pushback for moving objects (animals in levels 1 & 2)
+      const isAnimalLvl12 =
+        prop.type === 'jackrabbit' ||
+        prop.type === 'tortoise' ||
+        prop.type === 'snake' ||
+        prop.type === 'goat';
+      if (isAnimalLvl12 && prop.state === 'grounded') {
+        if (prop.pushbackTimer && prop.pushbackTimer > 0) {
+          prop.pushbackTimer -= dt;
+          const pushSpeed = 12.0;
+          prop.position.x += prop.pushbackDir!.x * pushSpeed * dt;
+          prop.position.z += prop.pushbackDir!.z * pushSpeed * dt;
+
+          this.clampPropXZ(prop, boundsHalfX + 1.0, boundsHalfZ + 1.0);
+          prop.mesh.position.x = prop.position.x;
+          prop.mesh.position.z = prop.position.z;
+
+          prop.mesh.rotation.y = Math.atan2(prop.pushbackDir!.x, prop.pushbackDir!.z);
+
+          this.tickCritterMotion(prop, dt, true);
+          this.grid.updateProp(prop, prop.oldX, prop.oldZ);
+          prop.oldX = prop.position.x;
+          prop.oldZ = prop.position.z;
+          continue;
+        }
+
+        const isOutOfBoundsX = Math.abs(prop.position.x) > boundsHalfX;
+        const isOutOfBoundsZ = Math.abs(prop.position.z) > boundsHalfZ;
+        if (isOutOfBoundsX || isOutOfBoundsZ) {
+          let pushX = 0;
+          let pushZ = 0;
+          if (prop.position.x > boundsHalfX) pushX = -1;
+          else if (prop.position.x < -boundsHalfX) pushX = 1;
+          if (prop.position.z > boundsHalfZ) pushZ = -1;
+          else if (prop.position.z < -boundsHalfZ) pushZ = 1;
+
+          if (pushX !== 0 || pushZ !== 0) {
+            prop.pushbackDir = prop.pushbackDir || new THREE.Vector3();
+            prop.pushbackDir.set(pushX, 0, pushZ).normalize();
+            prop.pushbackTimer = 0.35;
+
+            prop.wanderHeading = Math.atan2(pushX, pushZ) + (Math.random() - 0.5) * 1.0;
+
+            callbacks.onWindPushback?.(prop, pushX, pushZ);
+
+            prop.pushbackTimer -= dt;
+            const pushSpeed = 12.0;
+            prop.position.x += prop.pushbackDir.x * pushSpeed * dt;
+            prop.position.z += prop.pushbackDir.z * pushSpeed * dt;
+            this.clampPropXZ(prop, boundsHalfX + 1.0, boundsHalfZ + 1.0);
+            prop.mesh.position.x = prop.position.x;
+            prop.mesh.position.z = prop.position.z;
+            prop.mesh.rotation.y = Math.atan2(pushX, pushZ);
+
+            this.tickCritterMotion(prop, dt, true);
+            this.grid.updateProp(prop, prop.oldX, prop.oldZ);
+            prop.oldX = prop.position.x;
+            prop.oldZ = prop.position.z;
+            continue;
+          }
+        }
+      }
+
       const distToPlayer = distanceXZ(player.position, prop.position);
       const playerThreatens = distToPlayer < player.pullRadius + 4;
 
-      if (prop.wander && prop.state === 'grounded' && !(prop.flee && playerThreatens)) {
+      // Tortoise custom behavior: pop, stop, and hide in shell when chased
+      if (prop.type === 'tortoise' && prop.state === 'grounded') {
+        prop.tortoiseState = prop.tortoiseState || 'normal';
+        prop.retractProgress = prop.retractProgress || 0;
+
+        if (prop.tortoiseState === 'normal') {
+          if (playerThreatens) {
+            prop.tortoiseState = 'pop';
+            prop.tortoisePopTimer = 0.35;
+            callbacks.onPop?.(prop);
+          }
+        }
+
+        if (prop.tortoiseState === 'pop') {
+          prop.tortoisePopTimer = (prop.tortoisePopTimer ?? 0) - dt;
+          const t = Math.max(0, prop.tortoisePopTimer / 0.35); // 1 down to 0
+          const jumpHeight = 0.45; // hop height
+          prop.mesh.position.y = Math.sin(t * Math.PI) * jumpHeight;
+          
+          // scale pop
+          const scalePulse = 1.0 + Math.sin(t * Math.PI) * 0.25;
+          prop.mesh.scale.setScalar(scalePulse);
+
+          // retract head quickly
+          prop.retractProgress = Math.min(1, (prop.retractProgress ?? 0) + dt * 4);
+
+          updateTortoiseHeadMove(prop.mesh, prop.wobblePhase, 0, prop.retractProgress);
+
+          if (prop.tortoisePopTimer <= 0) {
+            prop.tortoiseState = 'hiding';
+            prop.tortoiseHidingTimer = 2.5;
+            prop.mesh.position.y = 0;
+            prop.mesh.scale.setScalar(1.0);
+          }
+        } else if (prop.tortoiseState === 'hiding') {
+          prop.retractProgress = Math.min(1, (prop.retractProgress ?? 0) + dt * 4);
+          updateTortoiseHeadMove(prop.mesh, prop.wobblePhase, 0, prop.retractProgress);
+          
+          prop.sweatTimer = (prop.sweatTimer ?? 0) - dt;
+          if (prop.sweatTimer <= 0) {
+            callbacks.onSweat?.(prop);
+            prop.sweatTimer = 0.3 + Math.random() * 0.4;
+          }
+
+          // Small shaking effect while hiding/stopped
+          const shakeIntensity = 0.025;
+          const shakeFreq = 50; // high frequency shiver
+          const time = Date.now() * 0.001;
+          prop.mesh.position.x = prop.position.x + Math.sin(time * shakeFreq) * shakeIntensity;
+          prop.mesh.position.z = prop.position.z + Math.cos(time * shakeFreq * 0.85) * shakeIntensity;
+          
+          if (playerThreatens) {
+            prop.tortoiseHidingTimer = 2.5; // keep hiding as long as player is near
+          } else {
+            prop.tortoiseHidingTimer = (prop.tortoiseHidingTimer ?? 0) - dt;
+            if (prop.tortoiseHidingTimer <= 0) {
+              prop.tortoiseState = 'normal';
+              // Reset mesh position back to actual position
+              prop.mesh.position.x = prop.position.x;
+              prop.mesh.position.z = prop.position.z;
+            }
+          }
+        } else {
+          // normal peeking out
+          prop.retractProgress = Math.max(0, (prop.retractProgress ?? 0) - dt * 2);
+        }
+      }
+
+      const isTortoiseHiding = prop.type === 'tortoise' && prop.tortoiseState && prop.tortoiseState !== 'normal';
+
+      if (prop.wander && prop.state === 'grounded' && !(prop.flee && playerThreatens) && !isTortoiseHiding) {
         prop.wanderTurnTimer -= dt;
         if (prop.wanderTurnTimer <= 0) {
           prop.wanderHeading = Math.random() * Math.PI * 2;
           prop.wanderTurnTimer = 1.2 + Math.random() * 2.8;
         }
-        prop.position.x += Math.cos(prop.wanderHeading) * prop.wanderSpeed * dt;
-        prop.position.z += Math.sin(prop.wanderHeading) * prop.wanderSpeed * dt;
+        let heading = prop.wanderHeading;
+        if (prop.type === 'snake') {
+          heading += Math.sin(prop.wobblePhase * 2.5) * 0.6;
+        }
+        const vx = Math.cos(heading) * prop.wanderSpeed;
+        const vz = Math.sin(heading) * prop.wanderSpeed;
+        prop.position.x += vx * dt;
+        prop.position.z += vz * dt;
         this.clampPropXZ(prop, boundsHalfX, boundsHalfZ);
         prop.mesh.position.x = prop.position.x;
         prop.mesh.position.z = prop.position.z;
-        const vx = Math.cos(prop.wanderHeading) * prop.wanderSpeed;
-        const vz = Math.sin(prop.wanderHeading) * prop.wanderSpeed;
         if (prop.type === 'snake' || prop.type === 'tortoise') {
           prop.mesh.rotation.y = facingAngleY(vx, vz, prop.mesh.rotation.y);
         } else {
-          prop.mesh.rotation.y = prop.wanderHeading;
+          prop.mesh.rotation.y = heading;
         }
         this.emitMovementTrail(
           prop,
-          Math.cos(prop.wanderHeading) * prop.wanderSpeed,
-          Math.sin(prop.wanderHeading) * prop.wanderSpeed,
+          vx,
+          vz,
           callbacks
         );
         this.tickCritterMotion(
@@ -123,19 +267,23 @@ export class AbsorptionSystem {
         prop.oldZ = prop.position.z;
       }
 
-      if (prop.flee && prop.state === 'grounded' && playerThreatens) {
+      if (prop.flee && prop.state === 'grounded' && playerThreatens && !isTortoiseHiding) {
         directionAway(prop.position, player.position, this.fleeDir);
-        prop.position.x += this.fleeDir.x * prop.fleeSpeed * dt;
-        prop.position.z += this.fleeDir.z * prop.fleeSpeed * dt;
+        let heading = Math.atan2(this.fleeDir.x, this.fleeDir.z);
+        if (prop.type === 'snake') {
+          heading += Math.sin(prop.wobblePhase * 2.5) * 0.6;
+        }
+        const fleeVx = Math.sin(heading) * prop.fleeSpeed;
+        const fleeVz = Math.cos(heading) * prop.fleeSpeed;
+        prop.position.x += fleeVx * dt;
+        prop.position.z += fleeVz * dt;
         this.clampPropXZ(prop, boundsHalfX, boundsHalfZ);
         prop.mesh.position.x = prop.position.x;
         prop.mesh.position.z = prop.position.z;
-        const fleeVx = this.fleeDir.x * prop.fleeSpeed;
-        const fleeVz = this.fleeDir.z * prop.fleeSpeed;
         if (prop.type === 'snake' || prop.type === 'tortoise') {
           prop.mesh.rotation.y = facingAngleY(fleeVx, fleeVz, prop.mesh.rotation.y);
         } else {
-          prop.mesh.rotation.y = Math.atan2(this.fleeDir.x, this.fleeDir.z);
+          prop.mesh.rotation.y = heading;
         }
         this.emitMovementTrail(
           prop,

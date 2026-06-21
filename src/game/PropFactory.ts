@@ -28,6 +28,13 @@ export interface AbsorbableProp {
   setPiece: boolean;
   oldX: number;
   oldZ: number;
+  pushbackTimer?: number;
+  pushbackDir?: THREE.Vector3;
+  tortoiseState?: 'normal' | 'pop' | 'hiding';
+  tortoisePopTimer?: number;
+  tortoiseHidingTimer?: number;
+  retractProgress?: number;
+  sweatTimer?: number;
 }
 
 let nextPropId = 0;
@@ -230,7 +237,7 @@ export function createTortoiseMesh(color: string, scale: [number, number, number
     eyeWhite.scale.set(1, 1.15, 0.8);
     addHeadPart(eyeWhite, new THREE.Vector3(eyeX, eyeY, eyeZ));
 
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.11, 6, 5), eyeMat);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.13, 6, 5), eyeMat);
     addHeadPart(pupil, new THREE.Vector3(eyeX, eyeY, eyeZ + sz * 0.06));
   }
 
@@ -260,22 +267,28 @@ interface TortoiseMotionData {
 export function updateTortoiseHeadMove(
   mesh: THREE.Object3D,
   phase: number,
-  intensity: number
+  intensity: number,
+  retractT = 0
 ): void {
   const data = mesh.userData as Partial<TortoiseMotionData>;
   if (!data.isTortoise || !data.headParts || !data.scale) return;
 
-  const amp = Math.max(0, Math.min(1, intensity));
+  const amp = Math.max(0, Math.min(1, intensity)) * (1 - retractT);
   const [sx, sy, sz] = data.scale;
   const sway = Math.sin(phase * 2.5) * sx * 0.06 * amp;
   const bob = Math.sin(phase * 4) * sy * 0.07 * amp;
   const reach = Math.sin(phase * 3) * sz * 0.14 * amp;
 
+  const scaleMult = 1 - retractT * 0.85;
+  const pullZ = -sz * 0.45 * retractT;
+  const pullY = -sy * 0.12 * retractT;
+
   for (const part of data.headParts) {
+    part.mesh.scale.setScalar(scaleMult);
     part.mesh.position.set(
-      part.rest.x + sway,
-      part.rest.y + bob,
-      part.rest.z + reach
+      part.rest.x * scaleMult + sway,
+      part.rest.y + pullY + bob,
+      part.rest.z + pullZ + reach
     );
   }
 }
@@ -315,23 +328,31 @@ export function updateSnakeWiggle(mesh: THREE.Object3D, phase: number, intensity
   const lateralAmp = data.lateralAmp;
   const liftAmp = data.liftAmp;
 
+  // Calculate phase scale based on segment count to keep the wave shape consistent (spanning ~1.35 cycles for S-shape)
+  const phaseScale = 8.5 / Math.max(1, segments.length - 1);
+  const liftScale = 5.0 / Math.max(1, segments.length - 1);
+  const surgeScale = 3.5 / Math.max(1, segments.length - 1);
+
   for (let i = 0; i < segments.length; i++) {
     const rest = rests[i];
-    const wave = Math.sin(phase * 4.5 - i * 0.65) * lateralAmp * amp;
-    const lift = Math.sin(phase * 3.5 - i * 0.45) * liftAmp * amp * 0.35;
-    const surge = Math.sin(phase * 2.5 - i * 0.35) * amp * 0.06;
+    // Wave propagates from head (last segment) to tail (first segment)
+    const distFromHead = segments.length - 1 - i;
+    const wave = Math.sin(phase * 2.5 - distFromHead * phaseScale) * lateralAmp * amp;
+    const lift = Math.sin(phase * 2.0 - distFromHead * liftScale) * liftAmp * amp * 0.35;
+    const surge = Math.sin(phase * 1.5 - distFromHead * surgeScale) * amp * 0.06;
     segments[i].position.set(rest.x + wave, rest.y + lift, rest.z + surge);
   }
 
   const headRest = data.headRest;
   const [sx, sy, sz] = data.scale;
-  const headWave = Math.sin(phase * 4.5 + 0.4) * lateralAmp * amp * 0.55;
-  const headLift = Math.sin(phase * 3.5 + 0.2) * liftAmp * amp * 0.35;
-  const headReach = Math.sin(phase * 4.5) * sz * 0.12 * amp;
+  // Head is slightly ahead of the neck segment (index segments.length - 1)
+  const headWave = Math.sin(phase * 2.5 + phaseScale) * lateralAmp * amp * 0.55;
+  const headLift = Math.sin(phase * 2.0 + liftScale) * liftAmp * amp * 0.35;
+  const headReach = Math.sin(phase * 2.5 + phaseScale) * sz * 0.12 * amp;
   data.headMesh.position.set(
     headRest.x + headWave,
     headRest.y + headLift,
-    headRest.z + Math.sin(phase * 2.5 + 0.3) * amp * 0.06 + headReach
+    headRest.z + Math.sin(phase * 1.5 + surgeScale) * amp * 0.06 + headReach
   );
 
   const h = data.headMesh.position;
@@ -347,10 +368,10 @@ export function createSnakeMesh(color: string, scale: [number, number, number]):
   const [sx, sy, sz] = scale;
   const bodyMat = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
   const bellyMat = new THREE.MeshToonMaterial({
-    color: new THREE.Color('#FDE68A'),
+    color: new THREE.Color('#e0c296'),
   });
-  const segmentCount = 7;
-  const spacing = sz / segmentCount;
+  const segmentCount = 12;
+  const spacing = (sz * 0.8) / (segmentCount - 1);
   const segmentMeshes: THREE.Mesh[] = [];
   const restPositions: THREE.Vector3[] = [];
 
@@ -361,7 +382,7 @@ export function createSnakeMesh(color: string, scale: [number, number, number]):
       new THREE.SphereGeometry(sx * taper, 6, 5),
       i % 2 === 0 ? bodyMat : bellyMat
     );
-    const rest = new THREE.Vector3(0, sy * 0.45, -sz * 0.42 + i * spacing);
+    const rest = new THREE.Vector3(0, sy * 0.45, -sz * 0.4 + i * spacing);
     seg.position.copy(rest);
     seg.scale.set(1, 0.65, 1.1);
     group.add(seg);
@@ -370,7 +391,7 @@ export function createSnakeMesh(color: string, scale: [number, number, number]):
   }
 
   const head = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.9, 6, 5), bodyMat);
-  const headRest = new THREE.Vector3(0, sy * 0.5, sz * 0.42);
+  const headRest = new THREE.Vector3(0, sy * 0.5, sz * 0.46);
   head.position.copy(headRest);
   head.scale.set(1.1, 0.75, 1.2);
   group.add(head);
@@ -393,7 +414,7 @@ export function createSnakeMesh(color: string, scale: [number, number, number]):
     headMesh: head,
     eyeMeshes,
     scale: [sx, sy, sz],
-    lateralAmp: sx * 0.55,
+    lateralAmp: sx * 2.8,
     liftAmp: sy * 0.2,
   };
   group.userData = { ...group.userData, ...wiggleData };
@@ -596,35 +617,86 @@ export function createJoshuaTreeMesh(color: string, scale: [number, number, numb
     color: new THREE.Color(color).lerp(new THREE.Color('#3D4A32'), 0.35),
   });
 
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(sx * 0.14, sx * 0.2, sy * 0.55, 6), bark);
-  trunk.position.y = sy * 0.28;
+  // 1. Lower Trunk
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(sx * 0.12, sx * 0.16, sy * 0.45, 6), bark);
+  trunk.position.set(0, sy * 0.225, 0);
   group.add(trunk);
 
-  const addCrown = (x: number, y: number, z: number, rotZ: number): void => {
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(sx * 0.07, sx * 0.09, sy * 0.22, 5), bark);
-    arm.position.set(x, y, z);
-    arm.rotation.z = rotZ;
-    arm.rotation.x = 0.35;
-    group.add(arm);
-
-    const cluster = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.32, sy * 0.2, 5), leafMat);
-    cluster.position.set(x + Math.sin(rotZ) * sx * 0.2, y + sy * 0.12, z);
-    cluster.rotation.z = rotZ * 0.4;
-    group.add(cluster);
-
-    const spike = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.22, sy * 0.14, 4), leafDark);
-    spike.position.set(x - sx * 0.08, y + sy * 0.08, z + sz * 0.06);
-    spike.rotation.y = 0.6;
-    group.add(spike);
+  // Helper to add a branch segment
+  const addBranch = (midX: number, midY: number, midZ: number, height: number, rotX: number, rotZ: number): void => {
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(sx * 0.08, sx * 0.11, height, 5), bark);
+    branch.position.set(midX, midY, midZ);
+    branch.rotation.set(rotX, 0, rotZ);
+    group.add(branch);
   };
 
-  addCrown(sx * 0.22, sy * 0.58, 0, 0.75);
-  addCrown(-sx * 0.2, sy * 0.72, sz * 0.05, -0.85);
-  addCrown(0, sy * 0.88, -sz * 0.08, 0.15);
+  // Shared geometries for performance
+  const coreGeo = new THREE.SphereGeometry(sx * 0.08, 5, 4);
+  const spikeGeo = new THREE.ConeGeometry(sx * 0.036, sy * 0.32, 3);
 
-  const top = new THREE.Mesh(new THREE.ConeGeometry(sx * 0.28, sy * 0.18, 5), leafDark);
-  top.position.y = sy * 0.94;
-  group.add(top);
+  // Helper to add a spiky yucca ball crown
+  const addCrown = (cx: number, cy: number, cz: number, rotZ: number): void => {
+    const crownGroup = new THREE.Group();
+    crownGroup.position.set(cx, cy, cz);
+    crownGroup.rotation.z = rotZ;
+
+    // Central core
+    const core = new THREE.Mesh(coreGeo, leafMat);
+    crownGroup.add(core);
+
+    // 15 spikes uniformly distributed on a sphere using Fibonacci sphere algorithm
+    const numSpikes = 15;
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // Golden angle (~2.399 rad)
+    
+    for (let i = 0; i < numSpikes; i++) {
+      const y = 1 - (i / (numSpikes - 1)) * 2; // y goes from 1 to -1
+      const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+      const theta = i * goldenAngle;
+
+      const dx = Math.cos(theta) * radiusAtY;
+      const dz = Math.sin(theta) * radiusAtY;
+      const dy = y;
+
+      const spike = new THREE.Mesh(spikeGeo, i % 2 === 0 ? leafMat : leafDark);
+      const offset = sy * 0.12;
+      spike.position.set(dx * offset, dy * offset, dz * offset);
+
+      // Point the spike outward from core
+      const dir = new THREE.Vector3(dx, dy, dz).normalize();
+      spike.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      
+      crownGroup.add(spike);
+    }
+
+    group.add(crownGroup);
+  };
+
+  // 2. Main Branch Segments
+  // Left side
+  addBranch(-sx * 0.11, sy * 0.55, sz * 0.025, sy * 0.26, 0.1, 0.8);
+  addBranch(-sx * 0.3, sy * 0.735, sz * 0.075, sy * 0.24, 0.2, 0.7);
+  addBranch(-sx * 0.2, sy * 0.75, 0, sy * 0.24, 0, -0.2);
+
+  // Right side
+  addBranch(sx * 0.12, sy * 0.535, -sz * 0.015, sy * 0.26, 0, -0.8);
+  addBranch(sx * 0.21, sy * 0.74, sz * 0.01, sy * 0.26, 0, 0.2);
+  addBranch(sx * 0.31, sy * 0.7, -sz * 0.05, sy * 0.22, 0, -0.8);
+
+  // Center/Back
+  addBranch(0, sy * 0.565, -sz * 0.075, sy * 0.25, -0.6, 0);
+  addBranch(0, sy * 0.79, -sz * 0.175, sy * 0.24, -0.3, 0);
+
+  // 3. Spiky Yucca Crowns
+  // Left Outer
+  addCrown(-sx * 0.38, sy * 0.82, sz * 0.1, -0.6);
+  // Left Inner
+  addCrown(-sx * 0.18, sy * 0.85, -sz * 0.05, -0.15);
+  // Right Inner
+  addCrown(sx * 0.18, sy * 0.86, sz * 0.05, 0.15);
+  // Right Outer
+  addCrown(sx * 0.38, sy * 0.78, -sz * 0.08, 0.6);
+  // Center Back
+  addCrown(0, sy * 0.9, -sz * 0.2, 0);
 
   enablePropShadows(group);
   return group;

@@ -195,6 +195,47 @@ export class UIManager {
     });
   }
 
+  showVideoCutscene(src: string, onDone: () => void): void {
+    this.clear();
+    const screen = document.createElement('div');
+    screen.className = 'screen';
+    screen.style.background = '#000';
+    screen.style.padding = '0';
+    screen.style.justifyContent = 'center';
+    screen.style.alignItems = 'center';
+    screen.innerHTML = `
+      <video id="cutscene-video" src="${src}" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
+      <button class="btn" id="btn-skip-video" style="position: absolute; bottom: 30px; right: 30px; background: rgba(0, 0, 0, 0.6); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); font-size: 0.95rem; padding: 10px 24px; font-weight: bold; border-radius: 8px; z-index: 210;">Skip</button>
+    `;
+    this.overlay.appendChild(screen);
+
+    const video = screen.querySelector('#cutscene-video') as HTMLVideoElement;
+    const skipBtn = screen.querySelector('#btn-skip-video') as HTMLButtonElement;
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      video.pause();
+      video.removeAttribute('src'); // Clean up memory
+      video.load();
+      this.clear();
+      onDone();
+    };
+
+    video.addEventListener('ended', finish);
+    skipBtn.addEventListener('click', finish);
+
+    // Fallback if autoplay is blocked: try to unmute play, if failed, play muted
+    video.play().catch((err) => {
+      console.warn("Autoplay unmuted blocked, trying muted...", err);
+      video.muted = true;
+      video.play().catch((err2) => {
+        console.error("Muted playback failed too", err2);
+      });
+    });
+  }
+
   clear(): void {
     this.overlay.innerHTML = '';
   }

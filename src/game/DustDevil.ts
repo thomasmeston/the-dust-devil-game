@@ -27,6 +27,11 @@ export class DustDevil {
   private lastMoveZ = 0;
   private isBoosting = false;
 
+  pushbackTimer = 0;
+  pushbackCooldown = 0;
+  readonly pushbackDir = new THREE.Vector3();
+  justTriggeredPushback = false;
+
   constructor() {
     this.vortex = new DustDevilVortex();
     this.group.add(this.vortex.group);
@@ -74,18 +79,86 @@ export class DustDevil {
   }
 
   update(input: InputManager, dt: number, boostMultiplier = 1.5): void {
+    this.justTriggeredPushback = false;
+    this.pushbackCooldown = Math.max(0, this.pushbackCooldown - dt);
+
+    if (this.pushbackTimer > 0) {
+      this.pushbackTimer -= dt;
+      const windPushSpeed = 16.0;
+      const prevX = this.position.x;
+      const prevZ = this.position.z;
+
+      this.position.x += this.pushbackDir.x * windPushSpeed * dt;
+      this.position.z += this.pushbackDir.z * windPushSpeed * dt;
+
+      // Hard safety clamp to prevent escaping completely (e.g. clipping through mountains)
+      const hardLimitX = this.boundsHalfX + 2.5;
+      const hardLimitZ = this.boundsHalfZ + 2.5;
+      this.position.x = Math.max(-hardLimitX, Math.min(hardLimitX, this.position.x));
+      this.position.z = Math.max(-hardLimitZ, Math.min(hardLimitZ, this.position.z));
+
+      if (dt > 0) {
+        this.velocity.set(
+          (this.position.x - prevX) / dt,
+          0,
+          (this.position.z - prevZ) / dt
+        );
+      }
+      this.lastMoveX = this.pushbackDir.x * windPushSpeed;
+      this.lastMoveZ = this.pushbackDir.z * windPushSpeed;
+
+      this.vortex.update(dt, this.velocity.x, this.velocity.z, windPushSpeed, false);
+      this.group.position.copy(this.position);
+      return;
+    }
+
     const move = input.getMovementVector();
     let speed = this.speed;
     this.isBoosting = !!(input.keys.boost && input.boostEnabled);
     if (this.isBoosting) speed *= boostMultiplier;
+
+    // Apply speed penalty if out of bounds and trying to move further out
+    let speedPenalty = 1.0;
+    const isOutOfBoundsX = Math.abs(this.position.x) > this.boundsHalfX;
+    const isOutOfBoundsZ = Math.abs(this.position.z) > this.boundsHalfZ;
+    if (isOutOfBoundsX || isOutOfBoundsZ) {
+      const movingOutX = (this.position.x > this.boundsHalfX && move.x > 0) || (this.position.x < -this.boundsHalfX && move.x < 0);
+      const movingOutZ = (this.position.z > this.boundsHalfZ && move.z > 0) || (this.position.z < -this.boundsHalfZ && move.z < 0);
+      if (movingOutX || movingOutZ) {
+        speedPenalty = 0.35; // 65% speed reduction when pushing against boundaries
+      }
+    }
+    speed *= speedPenalty;
 
     const prevX = this.position.x;
     const prevZ = this.position.z;
 
     this.position.x += move.x * speed * dt;
     this.position.z += move.z * speed * dt;
-    this.position.x = Math.max(-this.boundsHalfX, Math.min(this.boundsHalfX, this.position.x));
-    this.position.z = Math.max(-this.boundsHalfZ, Math.min(this.boundsHalfZ, this.position.z));
+
+    // Apply soft spring restoration force towards the playable boundaries
+    const springK = 9.0;
+    if (this.position.x > this.boundsHalfX) {
+      const excess = this.position.x - this.boundsHalfX;
+      this.position.x -= excess * springK * dt;
+    } else if (this.position.x < -this.boundsHalfX) {
+      const excess = -this.boundsHalfX - this.position.x;
+      this.position.x += excess * springK * dt;
+    }
+
+    if (this.position.z > this.boundsHalfZ) {
+      const excess = this.position.z - this.boundsHalfZ;
+      this.position.z -= excess * springK * dt;
+    } else if (this.position.z < -this.boundsHalfZ) {
+      const excess = -this.boundsHalfZ - this.position.z;
+      this.position.z += excess * springK * dt;
+    }
+
+    // Hard safety clamp to prevent escaping completely (e.g. clipping through mountains)
+    const hardLimitX = this.boundsHalfX + 2.5;
+    const hardLimitZ = this.boundsHalfZ + 2.5;
+    this.position.x = Math.max(-hardLimitX, Math.min(hardLimitX, this.position.x));
+    this.position.z = Math.max(-hardLimitZ, Math.min(hardLimitZ, this.position.z));
 
     if (dt > 0) {
       this.velocity.set(
@@ -100,5 +173,23 @@ export class DustDevil {
 
     this.vortex.update(dt, this.velocity.x, this.velocity.z, this.moveSpeed, this.isBoosting);
     this.group.position.copy(this.position);
+
+    // Check if player crossed playable bounds to trigger a Gust of Wind pushback
+    if (this.pushbackCooldown <= 0) {
+      let pushX = 0;
+      let pushZ = 0;
+      if (this.position.x > this.boundsHalfX) pushX = -1;
+      else if (this.position.x < -this.boundsHalfX) pushX = 1;
+      if (this.position.z > this.boundsHalfZ) pushZ = -1;
+      else if (this.position.z < -this.boundsHalfZ) pushZ = 1;
+
+      if (pushX !== 0 || pushZ !== 0) {
+        this.pushbackDir.set(pushX, 0, pushZ).normalize();
+        this.pushbackTimer = 0.4;
+        this.pushbackCooldown = 1.5;
+        this.justTriggeredPushback = true;
+        this.velocity.copy(this.pushbackDir).multiplyScalar(16.0);
+      }
+    }
   }
 }

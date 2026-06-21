@@ -68,7 +68,7 @@ export const PULL_RADIUS_MULT = 1.25;
 export const MAX_ORBIT_SLOTS = 30;
 export const GRID_CELL_SIZE = 2;
 
-export const ISOMETRIC_YAW = Math.PI / 4;
+export const ISOMETRIC_YAW = 0;
 export const ISOMETRIC_PITCH = Math.atan(1 / Math.sqrt(2));
 
 export function massToRadius(mass: number, growthFactor = GROWTH_FACTOR): number {
@@ -117,4 +117,5 @@ export type GameState =
   | 'stage_intro'
   | 'playing'
   | 'stage_complete'
-  | 'credits';
+  | 'credits'
+  | 'cutscene';

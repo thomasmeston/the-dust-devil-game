@@ -8,7 +8,7 @@ import {
 } from './PropFactory';
 import { SpatialGrid } from './SpatialGrid';
 import { groundTextureLoader } from './GroundTextureLoader';
-import { addLowBoulderRidge, createBorderMountains } from './BorderMountains';
+import { addLowBoulderRidge } from './BorderMountains';
 import { playableHalfExtents } from '../utils/bounds';
 
 export class StageManager {
@@ -44,15 +44,18 @@ export class StageManager {
     resetPropIds();
 
     const palette = BIOME_PALETTES[stageId];
+    // Extend the ground visually to 3.5x to blend seamlessly into sky fog
+    const visualWidth = level.width * 3.5;
+    const visualDepth = level.depth * 3.5;
     const groundMat = groundTextureLoader.createGroundMaterial(
       stageId,
-      level.width,
-      level.depth,
+      visualWidth,
+      visualDepth,
       palette.ground
     );
     const ground = this.scene.getObjectByName('ground') as THREE.Mesh | undefined;
     if (!ground) {
-      const geo = new THREE.PlaneGeometry(level.width, level.depth);
+      const geo = new THREE.PlaneGeometry(visualWidth, visualDepth);
       const mesh = new THREE.Mesh(geo, groundMat);
       mesh.name = 'ground';
       mesh.rotation.x = -Math.PI / 2;
@@ -66,7 +69,7 @@ export class StageManager {
         oldMat.normalMap?.dispose();
       }
       (ground.geometry as THREE.PlaneGeometry).dispose();
-      ground.geometry = new THREE.PlaneGeometry(level.width, level.depth);
+      ground.geometry = new THREE.PlaneGeometry(visualWidth, visualDepth);
       ground.material = groundMat;
     }
 
@@ -80,7 +83,7 @@ export class StageManager {
     const { halfX, halfZ } = playableHalfExtents(level.width, level.depth);
     this.playableHalfX = halfX;
     this.playableHalfZ = halfZ;
-    this.scene.add(createBorderMountains(stageId, level.width, level.depth));
+    // this.scene.add(createBorderMountains(stageId, level.width, level.depth)); // Temporarily removed for boundary testing
 
     for (const placed of level.props) {
       const def = objectDefs[placed.type];

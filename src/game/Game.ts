@@ -28,6 +28,7 @@ import { collectModelIds } from './PropFactory';
 import { groundTextureLoader } from './GroundTextureLoader';
 import { DowntownTraffic } from './DowntownTraffic';
 import { DesertUfo } from './DesertUfo';
+import { publicUrl } from '../utils/publicUrl';
 
 export class Game {
   private sceneManager: SceneManager;
@@ -56,6 +57,7 @@ export class Game {
   private exitOpened = false;
   private boostAnnounced = false;
   private shakeIntensity = 0;
+  private lastAnimalWindSoundTime = 0;
   private clock = new THREE.Clock();
   private rafId = 0;
   private pauseInputForStory = false;
@@ -253,7 +255,11 @@ export class Game {
   }
 
   private onAbsorb(prop: { type: string; mass: number; setPiece: boolean }): void {
-    this.audio.playAbsorb(prop.mass);
+    if (prop.type === 'ufo') {
+      this.audio.playUfoAbsorb();
+    } else {
+      this.audio.playAbsorb(prop.mass);
+    }
     this.particles.spawnPuff(this.sceneManager.scene, this.player.position.clone());
     this.hud.flashAbsorb(prop.mass);
     this.hud.showPickupLabel(prop.type);
@@ -262,6 +268,18 @@ export class Game {
       this.inventoryPanel.render(this.inventory);
     }
     this.shakeIntensity = 0.15;
+
+    if (prop.type === 'tortoise') {
+      this.pauseInputForStory = true;
+      this.input.enabled = false;
+      this.touchControls.setEnabled(false);
+      this.audio.playUiPop();
+      this.bubble.show("May I shell pick you up?", () => {
+        this.pauseInputForStory = false;
+        this.input.enabled = true;
+        this.syncTouchControlsEnabled();
+      });
+    }
 
     if (!this.firstPickup) {
       this.firstPickup = true;
@@ -308,6 +326,24 @@ export class Game {
   }
 
   private completeStage(): void {
+    if (this.stageIndex === 0) {
+      this.state = 'stage_complete';
+      this.inventoryPanel.hide();
+      this.touchControls.hide();
+      this.input.enabled = true;
+      this.hud.hide();
+      this.hud.setInventorySignVisible(false);
+      this.audio.stopMusic();
+      const videoSrc = publicUrl('a_dust_devil_picking_items_up.mp4');
+      this.ui.showVideoCutscene(videoSrc, () => {
+        this.finishCompleteStage();
+      });
+    } else {
+      this.finishCompleteStage();
+    }
+  }
+
+  private finishCompleteStage(): void {
     this.state = 'stage_complete';
     this.inventoryPanel.hide();
     this.touchControls.hide();
@@ -364,6 +400,16 @@ export class Game {
 
     if (!this.pauseInputForStory && !this.bubble.isVisible()) {
       this.player.update(this.input, dt);
+      if (this.player.justTriggeredPushback) {
+        this.audio.playWindGust();
+        this.particles.spawnWindGust(
+          this.sceneManager.scene,
+          this.player.position,
+          this.player.pushbackDir.x,
+          this.player.pushbackDir.z
+        );
+        this.shakeIntensity = 0.08;
+      }
     }
 
     if (this.player.moveSpeed > 1) {
@@ -384,6 +430,26 @@ export class Game {
         onBounce: () => {},
         onFleeTrail: (prop, velX, velZ, variant) => {
           this.particles.spawnFleeTrail(prop.id, prop.position, velX, velZ, dt, variant);
+        },
+        onWindPushback: (prop, dirX, dirZ) => {
+          const distToPlayer = prop.position.distanceTo(this.player.position);
+          const now = Date.now();
+          if (distToPlayer < 22 && now - this.lastAnimalWindSoundTime > 350) {
+            this.audio.playWindGust();
+            this.lastAnimalWindSoundTime = now;
+          }
+          this.particles.spawnWindGust(
+            this.sceneManager.scene,
+            prop.position,
+            dirX,
+            dirZ
+          );
+        },
+        onPop: () => {
+          this.audio.playTortoiseRetract();
+        },
+        onSweat: (prop) => {
+          this.particles.spawnSweat(this.sceneManager.scene, prop.position);
         },
       },
       this.stageManager.playableHalfX,
@@ -410,7 +476,10 @@ export class Game {
     }
 
     this.downtownTraffic.update(dt);
-    this.desertUfo.update(dt);
+    this.desertUfo.update(dt, this.player, (mass) => {
+      this.player.addMass(mass);
+      this.onAbsorb({ type: 'ufo', mass, setPiece: false });
+    });
 
     this.elapsedSec += dt;
     const level = this.stageManager.level;

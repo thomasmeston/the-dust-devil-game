@@ -16,7 +16,7 @@ export class CameraController {
   private frustumSize = CAMERA_FRUSTUM_BASE;
 
   constructor(aspect: number) {
-    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 500);
     this.applyFrustumSize(this.frustumSize, aspect);
     this.repositionImmediate(new THREE.Vector3(0, 0, 0));
   }
