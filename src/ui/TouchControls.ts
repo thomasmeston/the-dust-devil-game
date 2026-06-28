@@ -2,13 +2,11 @@ import type { InputManager } from '../game/InputManager';
 import { isMobileUi } from '../utils/device';
 
 const JOY_RADIUS = 70;
-const KNOB_RADIUS = 32;
-const JOY_BASE_SIZE = JOY_RADIUS * 2;
+const MOVE_ZONE_SIZE = JOY_RADIUS * 2;
 
 export class TouchControls {
   private el: HTMLDivElement;
-  private joystickBase: HTMLDivElement;
-  private joystickKnob: HTMLDivElement;
+  private moveZone: HTMLDivElement;
   private boostBtn: HTMLButtonElement;
   private activePointerId: number | null = null;
   private knobOffset = { x: 0, y: 0 };
@@ -23,19 +21,14 @@ export class TouchControls {
     this.el.className = 'touch-controls';
     this.el.hidden = !isMobileUi();
     this.el.innerHTML = `
-      <div class="touch-controls__joystick" aria-hidden="true">
-        <div class="touch-controls__joystick-base">
-          <div class="touch-controls__joystick-knob"></div>
-        </div>
-      </div>
+      <div class="touch-controls__move-zone" aria-hidden="true"></div>
       <button type="button" class="touch-controls__boost" hidden>Boost</button>
     `;
     container.appendChild(this.el);
-    this.joystickBase = this.el.querySelector('.touch-controls__joystick-base')!;
-    this.joystickKnob = this.el.querySelector('.touch-controls__joystick-knob')!;
+    this.moveZone = this.el.querySelector('.touch-controls__move-zone')!;
     this.boostBtn = this.el.querySelector('.touch-controls__boost')!;
     this.injectStyles();
-    this.bindJoystick();
+    this.bindMoveZone();
     this.bindBoost();
   }
 
@@ -67,19 +60,19 @@ export class TouchControls {
     this.el.hidden = !isMobileUi() || !this.visible;
   }
 
-  private bindJoystick(): void {
+  private bindMoveZone(): void {
     const onPointerDown = (e: PointerEvent) => {
       if (!this.controlsEnabled || !this.visible) return;
       if (this.activePointerId !== null) return;
       this.activePointerId = e.pointerId;
-      this.joystickBase.setPointerCapture(e.pointerId);
-      this.updateKnobFromEvent(e);
+      this.moveZone.setPointerCapture(e.pointerId);
+      this.updateMoveFromEvent(e);
       e.preventDefault();
     };
 
     const onPointerMove = (e: PointerEvent) => {
       if (e.pointerId !== this.activePointerId) return;
-      this.updateKnobFromEvent(e);
+      this.updateMoveFromEvent(e);
       e.preventDefault();
     };
 
@@ -90,10 +83,10 @@ export class TouchControls {
       e.preventDefault();
     };
 
-    this.joystickBase.addEventListener('pointerdown', onPointerDown);
-    this.joystickBase.addEventListener('pointermove', onPointerMove);
-    this.joystickBase.addEventListener('pointerup', endPointer);
-    this.joystickBase.addEventListener('pointercancel', endPointer);
+    this.moveZone.addEventListener('pointerdown', onPointerDown);
+    this.moveZone.addEventListener('pointermove', onPointerMove);
+    this.moveZone.addEventListener('pointerup', endPointer);
+    this.moveZone.addEventListener('pointercancel', endPointer);
   }
 
   private bindBoost(): void {
@@ -111,8 +104,8 @@ export class TouchControls {
     this.boostBtn.addEventListener('pointercancel', release);
   }
 
-  private updateKnobFromEvent(e: PointerEvent): void {
-    const rect = this.joystickBase.getBoundingClientRect();
+  private updateMoveFromEvent(e: PointerEvent): void {
+    const rect = this.moveZone.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     let dx = e.clientX - cx;
@@ -124,7 +117,6 @@ export class TouchControls {
     }
     this.knobOffset.x = dx;
     this.knobOffset.y = dy;
-    this.joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 
     const nx = dx / JOY_RADIUS;
     const nz = dy / JOY_RADIUS;
@@ -134,11 +126,10 @@ export class TouchControls {
   private resetJoystick(): void {
     this.knobOffset.x = 0;
     this.knobOffset.y = 0;
-    this.joystickKnob.style.transform = 'translate(-50%, -50%)';
     this.input.setTouchMove(0, 0);
     if (this.activePointerId !== null) {
       try {
-        this.joystickBase.releasePointerCapture(this.activePointerId);
+        this.moveZone.releasePointerCapture(this.activePointerId);
       } catch {
         /* already released */
       }
@@ -157,38 +148,15 @@ export class TouchControls {
         z-index: 120;
         pointer-events: none;
       }
-      .touch-controls__joystick {
+      .touch-controls__move-zone {
         position: absolute;
         left: 50%;
         bottom: max(24px, env(safe-area-inset-bottom));
         transform: translateX(-50%);
+        width: ${MOVE_ZONE_SIZE}px;
+        height: ${MOVE_ZONE_SIZE}px;
         pointer-events: auto;
         touch-action: none;
-      }
-      .touch-controls__joystick-base {
-        width: ${JOY_BASE_SIZE}px;
-        height: ${JOY_BASE_SIZE}px;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.16);
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        position: relative;
-        touch-action: none;
-      }
-      .touch-controls__joystick-knob {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: ${KNOB_RADIUS * 2}px;
-        height: ${KNOB_RADIUS * 2}px;
-        margin-left: -${KNOB_RADIUS}px;
-        margin-top: -${KNOB_RADIUS}px;
-        border-radius: 50%;
-        background: rgba(251, 191, 36, 0.42);
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        transform: translate(-50%, -50%);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        touch-action: none;
-        pointer-events: none;
       }
       .touch-controls__boost {
         position: absolute;

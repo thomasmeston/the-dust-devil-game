@@ -20,6 +20,7 @@ import { StoryManager } from './StoryManager';
 import { PickupInventory } from './PickupInventory';
 import { HUD } from '../ui/HUD';
 import { InventoryPanel } from '../ui/InventoryPanel';
+import { PauseMenu } from '../ui/PauseMenu';
 import { ThoughtBubble } from '../ui/ThoughtBubble';
 import { TouchControls } from '../ui/TouchControls';
 import { UIManager } from '../ui/UIManager';
@@ -45,6 +46,7 @@ export class Game {
   private hud: HUD;
   private inventory: PickupInventory;
   private inventoryPanel: InventoryPanel;
+  private pauseMenu: PauseMenu;
   private bubble: ThoughtBubble;
   private touchControls: TouchControls;
   private downtownTraffic: DowntownTraffic;
@@ -61,6 +63,11 @@ export class Game {
   private clock = new THREE.Clock();
   private rafId = 0;
   private pauseInputForStory = false;
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private readonly pointerNdc = new THREE.Vector2();
+  private readonly groundHit = new THREE.Vector3();
+  private mouseSteerPointerId: number | null = null;
 
   constructor(container: HTMLElement) {
     this.sceneManager = new SceneManager(container);
@@ -78,9 +85,10 @@ export class Game {
     this.hud = new HUD(container);
     this.inventory = new PickupInventory();
     this.inventoryPanel = new InventoryPanel(container, (open) => {
-      this.syncInputEnabled(!open);
-      this.hud.setInventorySignVisible(!open);
-      this.touchControls.setEnabled(!open);
+      this.onGameplayOverlayChange(open);
+    });
+    this.pauseMenu = new PauseMenu(container, this.audio, (open) => {
+      this.onGameplayOverlayChange(open);
     });
     this.bubble = new ThoughtBubble(container);
     this.touchControls = new TouchControls(container, this.input);
@@ -92,6 +100,9 @@ export class Game {
 
     this.hud.onInventoryTap(() => {
       this.input.requestInventoryToggle();
+    });
+    this.hud.onPauseTap(() => {
+      this.openPauseMenu();
     });
 
     this.bubble.onTap(() => {
@@ -123,29 +134,171 @@ export class Game {
     this.sceneManager.scene.add(this.player.group);
     this.audio.init();
 
+    const canvas = this.sceneManager.renderer.domElement;
+    canvas.addEventListener('pointerdown', (e) => this.onCanvasPointerDown(e));
+    window.addEventListener('pointermove', (e) => this.onMouseSteerMove(e));
+    window.addEventListener('pointerup', (e) => this.onMouseSteerEnd(e));
+    window.addEventListener('pointercancel', (e) => this.onMouseSteerEnd(e));
     container.addEventListener('pointerup', (e) => this.onContainerPointerUp(e));
 
+    void this.bootstrapTitleScreen();
+
+    this.loop();
+  }
+
+  private async bootstrapTitleScreen(): Promise<void> {
+    await this.loadMenuBackdrop('desert');
     this.ui.showTitle(
       () => void this.beginGame(),
       () => this.audio.toggleMute()
     );
+  }
 
-    this.loop();
+  private async loadMenuBackdrop(stageId: StageId): Promise<void> {
+    const level = LEVELS[stageId];
+    await Promise.all([
+      modelLoader.preloadAll(collectModelIds(OBJECTS)),
+      groundTextureLoader.preloadAll(),
+    ]);
+
+    this.stageManager.clear();
+    this.particles.resetFleeTrails();
+    this.downtownTraffic.dispose();
+    this.desertUfo.dispose();
+    this.absorption.clear();
+
+    await this.stageManager.loadAsync(level, OBJECTS, stageId);
+    if (stageId === 'downtown') {
+      this.downtownTraffic.build(level.width, level.depth);
+    }
+
+    this.player.reset(
+      level.playerStart.x,
+      level.playerStart.z,
+      level.minSizeClass,
+      level.growthFactor
+    );
+    this.player.setBounds(
+      this.stageManager.playableHalfX,
+      this.stageManager.playableHalfZ
+    );
+    this.player.group.visible = true;
+    this.cameraController.resetStageZoom();
+    this.cameraController.setPlayerRadius(this.player.radius);
+    this.cameraController.repositionImmediate(this.player.position);
+    this.cameraController.updateFrustum(
+      this.sceneManager.width / this.sceneManager.height
+    );
+  }
+
+  private updateMenuBackdrop(dt: number): void {
+    if (!this.stageManager.level) return;
+    this.player.update(this.input, dt);
+    this.cameraController.setPlayerRadius(this.player.radius);
+    this.cameraController.updateFrustum(
+      this.sceneManager.width / this.sceneManager.height,
+      dt
+    );
+  }
+
+  private isBackdropState(): boolean {
+    return (
+      this.state === 'title' ||
+      this.state === 'credits' ||
+      this.state === 'stage_complete' ||
+      this.state === 'stage_intro'
+    );
   }
 
   private onContainerPointerUp(e: PointerEvent): void {
     const target = e.target as HTMLElement;
     if (target.closest('.touch-controls')) return;
     if (target.closest('.hud-inventory-sign--mobile')) return;
+    if (target.closest('.hud-pause-btn')) return;
     if (target.closest('.thought-bubble-inner')) return;
     if (target.closest('.ui-overlay .screen')) return;
     if (target.closest('.inventory-panel')) return;
+    if (target.closest('.pause-menu')) return;
 
     this.audio.resume();
     if (this.bubble.isVisible()) {
       this.input.requestDismiss();
       this.handleBubbleDismissFromTap();
+      return;
     }
+  }
+
+  private canMouseSteer(e: PointerEvent): boolean {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return false;
+    if (this.state !== 'playing') return false;
+    if (!this.input.enabled || this.pauseInputForStory) return false;
+    if (this.inventoryPanel.isOpen || this.pauseMenu.isOpen) return false;
+    if (this.bubble.isVisible()) return false;
+    return true;
+  }
+
+  private onCanvasPointerDown(e: PointerEvent): void {
+    if (e.target !== this.sceneManager.renderer.domElement) return;
+    if (!this.canMouseSteer(e)) return;
+
+    this.mouseSteerPointerId = e.pointerId;
+    this.input.setMouseSteering(true);
+    this.sceneManager.renderer.domElement.setPointerCapture(e.pointerId);
+    this.updateMouseSteer(e.clientX, e.clientY);
+    e.preventDefault();
+  }
+
+  private onMouseSteerMove(e: PointerEvent): void {
+    if (this.mouseSteerPointerId === null || e.pointerId !== this.mouseSteerPointerId) return;
+    if (e.pointerType !== 'mouse') return;
+    if ((e.buttons & 1) === 0) {
+      this.endMouseSteer(e);
+      return;
+    }
+    if (this.state !== 'playing' || !this.input.enabled) {
+      this.endMouseSteer(e);
+      return;
+    }
+    this.updateMouseSteer(e.clientX, e.clientY);
+  }
+
+  private onMouseSteerEnd(e: PointerEvent): void {
+    if (this.mouseSteerPointerId === null || e.pointerId !== this.mouseSteerPointerId) return;
+    this.endMouseSteer(e);
+  }
+
+  private endMouseSteer(e?: PointerEvent): void {
+    this.input.stopMouseSteer();
+    if (this.mouseSteerPointerId !== null) {
+      if (e) {
+        try {
+          this.sceneManager.renderer.domElement.releasePointerCapture(e.pointerId);
+        } catch {
+          /* already released */
+        }
+      }
+      this.mouseSteerPointerId = null;
+    }
+  }
+
+  private updateMouseSteer(clientX: number, clientY: number): void {
+    const world = this.screenToWorldGround(clientX, clientY);
+    if (world) {
+      this.input.setMouseSteerTarget(world.x, world.z);
+    }
+  }
+
+  private screenToWorldGround(clientX: number, clientY: number): THREE.Vector3 | null {
+    const canvas = this.sceneManager.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+
+    this.pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointerNdc, this.cameraController.camera);
+    return this.raycaster.ray.intersectPlane(this.groundPlane, this.groundHit)
+      ? this.groundHit
+      : null;
   }
 
   private handleBubbleDismissFromTap(): void {
@@ -154,17 +307,21 @@ export class Game {
     else this.bubble.dismiss();
   }
 
+  private onGameplayOverlayChange(open: boolean): void {
+    if (open) this.endMouseSteer();
+    this.syncInputEnabled(!open);
+    this.hud.setInventorySignVisible(!open);
+    this.hud.setPauseVisible(!open);
+    this.touchControls.setEnabled(!open);
+  }
+
   private syncTouchControlsEnabled(): void {
     const allow =
       this.state === 'playing' &&
       !this.inventoryPanel.isOpen &&
+      !this.pauseMenu.isOpen &&
       !this.pauseInputForStory;
     this.touchControls.setEnabled(allow);
-  }
-
-  private playingHint(boost: boolean): string {
-    const hints = hintsForDevice();
-    return boost ? hints.playingBoost : hints.playing;
   }
 
   private async beginGame(): Promise<void> {
@@ -179,6 +336,7 @@ export class Game {
     this.stageIndex = 0;
     this.inventory.reset();
     this.inventoryPanel.hide();
+    this.pauseMenu.hide();
     this.touchControls.hide();
     void this.startStage(STAGE_ORDER[0]);
   }
@@ -196,6 +354,7 @@ export class Game {
     this.stageManager.clear();
     this.particles.resetFleeTrails();
     this.inventoryPanel.hide();
+    this.pauseMenu.hide();
     this.touchControls.hide();
 
     await this.stageManager.loadAsync(level, OBJECTS, stageId);
@@ -239,7 +398,7 @@ export class Game {
         STAGE_ORDER.length
       );
       this.hud.setInventorySignVisible(true);
-      this.hud.setHint(this.playingHint(!!level.enableBoost));
+      this.hud.setPauseVisible(true);
       this.touchControls.setPlayingVisible(true);
       this.syncTouchControlsEnabled();
       this.audio.startMusic(stageId, this.stageIndex);
@@ -311,24 +470,30 @@ export class Game {
   private finishGame(): void {
     this.state = 'credits';
     this.inventoryPanel.hide();
+    this.pauseMenu.hide();
     this.touchControls.hide();
     this.input.enabled = true;
     this.hud.hide();
     this.audio.stopMusic();
     this.ui.showCredits(STORY.ending, STORY.credits ?? [], STORY.musicBy, () => {
-      this.stageManager.clear();
-      this.ui.showTitle(
-        () => void this.beginGame(),
-        () => this.audio.toggleMute()
-      );
-      this.state = 'title';
+      void this.returnToTitleScreen();
     });
+  }
+
+  private async returnToTitleScreen(): Promise<void> {
+    this.state = 'title';
+    await this.loadMenuBackdrop('desert');
+    this.ui.showTitle(
+      () => void this.beginGame(),
+      () => this.audio.toggleMute()
+    );
   }
 
   private completeStage(): void {
     if (this.stageIndex === 0) {
       this.state = 'stage_complete';
       this.inventoryPanel.hide();
+      this.pauseMenu.hide();
       this.touchControls.hide();
       this.input.enabled = true;
       this.hud.hide();
@@ -346,6 +511,7 @@ export class Game {
   private finishCompleteStage(): void {
     this.state = 'stage_complete';
     this.inventoryPanel.hide();
+    this.pauseMenu.hide();
     this.touchControls.hide();
     this.input.enabled = true;
     this.hud.hide();
@@ -372,8 +538,47 @@ export class Game {
 
   private syncInputEnabled(allowMovement: boolean): void {
     this.input.enabled =
-      allowMovement && !this.inventoryPanel.isOpen && !this.pauseInputForStory;
+      allowMovement &&
+      !this.inventoryPanel.isOpen &&
+      !this.pauseMenu.isOpen &&
+      !this.pauseInputForStory;
     this.syncTouchControlsEnabled();
+  }
+
+  private openPauseMenu(): void {
+    if (this.state !== 'playing' || this.bubble.isVisible()) return;
+    if (this.inventoryPanel.isOpen) this.inventoryPanel.hide();
+    this.pauseMenu.show();
+  }
+
+  private closePauseMenu(): void {
+    if (!this.pauseMenu.isOpen) return;
+    this.pauseMenu.hide();
+  }
+
+  private handleEscape(): void {
+    if (!this.input.consumeEscape()) return;
+
+    if (this.bubble.isVisible()) {
+      if (this.bubble.isTyping()) this.bubble.skip();
+      else this.bubble.dismiss();
+      return;
+    }
+
+    if (this.state !== 'playing') return;
+
+    if (this.inventoryPanel.isOpen) {
+      this.inventoryPanel.hide();
+      this.onGameplayOverlayChange(false);
+      return;
+    }
+
+    if (this.pauseMenu.isOpen) {
+      this.closePauseMenu();
+      return;
+    }
+
+    this.openPauseMenu();
   }
 
   private handleInventoryToggle(): void {
@@ -383,14 +588,15 @@ export class Game {
     const opening = !this.inventoryPanel.isOpen;
     this.inventoryPanel.toggle();
     if (opening) this.inventoryPanel.render(this.inventory);
-    this.syncInputEnabled(!this.inventoryPanel.isOpen);
+    this.onGameplayOverlayChange(this.inventoryPanel.isOpen);
   }
 
   private updatePlaying(dt: number): void {
+    this.handleEscape();
     this.handleBubbleDismiss();
     this.handleInventoryToggle();
 
-    if (this.inventoryPanel.isOpen) {
+    if (this.inventoryPanel.isOpen || this.pauseMenu.isOpen) {
       const level = this.stageManager.level;
       if (level) {
         this.hud.update(this.player.mass, level, this.elapsedSec, this.stageManager.exitOpen);
@@ -498,6 +704,8 @@ export class Game {
 
     if (this.state === 'playing') {
       this.updatePlaying(dt);
+    } else if (this.isBackdropState()) {
+      this.updateMenuBackdrop(dt);
     }
 
     this.sceneManager.render(this.cameraController.camera);

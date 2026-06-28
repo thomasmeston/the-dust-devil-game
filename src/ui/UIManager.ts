@@ -26,16 +26,28 @@ export class UIManager {
         position: absolute; inset: 0;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        background: rgba(26, 26, 46, 0.92);
+        background: rgba(12, 16, 28, 0.34);
+        backdrop-filter: blur(16px) saturate(1.15);
+        -webkit-backdrop-filter: blur(16px) saturate(1.15);
         pointer-events: auto;
         text-align: center;
         padding: 2rem;
         animation: fade-in 0.4s ease;
       }
       @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-      .screen h1 { font-size: 2.8rem; color: #fbbf24; margin-bottom: 0.5rem; font-weight: 800; }
-      .screen h2 { font-size: 1.8rem; color: #fff; margin-bottom: 1rem; }
-      .screen p { color: #cbd5e1; font-size: 1.1rem; max-width: 520px; line-height: 1.6; margin-bottom: 1.5rem; font-style: italic; }
+      .screen h1 {
+        font-size: 2.8rem; color: #fbbf24; margin-bottom: 0.5rem; font-weight: 800;
+        text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+      }
+      .screen h2 {
+        font-size: 1.8rem; color: #fff; margin-bottom: 1rem;
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+      }
+      .screen p {
+        color: #e2e8f0; font-size: 1.1rem; max-width: 520px; line-height: 1.6;
+        margin-bottom: 1.5rem; font-style: italic;
+        text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
+      }
       .screen .btn {
         background: #fbbf24; color: #1a1a2e; border: none;
         padding: 14px 36px; font-size: 1.1rem; font-weight: 800;
@@ -58,7 +70,10 @@ export class UIManager {
       .screen .stars-big { font-size: 2.5rem; letter-spacing: 8px; margin: 1rem 0; }
       .screen .stars-big .lit { color: #fbbf24; }
       .screen .stars-big span { color: #475569; }
-      .screen .controls { color: #94a3b8; font-size: 0.9rem; margin-top: 1rem; font-style: normal; }
+      .screen .controls {
+        color: #cbd5e1; font-size: 0.9rem; margin-top: 1rem; font-style: normal;
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+      }
       .screen .credits-block { margin: 1.5rem 0 1rem; }
       .screen .credits-heading {
         color: #fbbf24; font-size: 1rem; font-weight: 800;
@@ -73,11 +88,28 @@ export class UIManager {
       .stage-intro-card {
         position: absolute; inset: 0; z-index: 150;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: rgba(26,26,46,0.75); pointer-events: none;
+        background: rgba(12, 16, 28, 0.3);
+        backdrop-filter: blur(14px) saturate(1.1);
+        -webkit-backdrop-filter: blur(14px) saturate(1.1);
+        pointer-events: none;
         animation: fade-in 0.3s ease;
       }
-      .stage-intro-card h2 { color: #fbbf24; font-size: 2rem; }
-      .stage-intro-card p { color: #e2e8f0; font-size: 1.1rem; font-style: italic; }
+      .stage-intro-card h2 {
+        color: #fbbf24; font-size: 2rem;
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+      }
+      .stage-intro-card p {
+        color: #e2e8f0; font-size: 1.1rem; font-style: italic;
+        text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
+      }
+      .screen--video {
+        background: #000;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        padding: 0;
+        justify-content: center;
+        align-items: center;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -198,11 +230,7 @@ export class UIManager {
   showVideoCutscene(src: string, onDone: () => void): void {
     this.clear();
     const screen = document.createElement('div');
-    screen.className = 'screen';
-    screen.style.background = '#000';
-    screen.style.padding = '0';
-    screen.style.justifyContent = 'center';
-    screen.style.alignItems = 'center';
+    screen.className = 'screen screen--video';
     screen.innerHTML = `
       <video id="cutscene-video" src="${src}" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
       <button class="btn" id="btn-skip-video" style="position: absolute; bottom: 30px; right: 30px; background: rgba(0, 0, 0, 0.6); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); font-size: 0.95rem; padding: 10px 24px; font-weight: bold; border-radius: 8px; z-index: 210;">Skip</button>

@@ -1,5 +1,6 @@
 import { Howl } from 'howler';
 import type { StageId } from '../utils/constants';
+import { clamp } from '../utils/constants';
 import { publicUrl } from '../utils/publicUrl';
 
 const STAGE_TRACKS: Record<StageId, string> = {
@@ -10,11 +11,15 @@ const STAGE_TRACKS: Record<StageId, string> = {
   downtown: publicUrl('audio/downtown_theme.mp3'),
 };
 
-const MUSIC_VOLUME = 0.35;
+const DEFAULT_MUSIC_VOLUME = 0.35;
+const MUSIC_VOLUME_KEY = 'dust-devil-music-volume';
+const MUSIC_MUTED_KEY = 'dust-devil-music-muted';
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private muted = false;
+  private musicVolume = DEFAULT_MUSIC_VOLUME;
+  private musicMuted = false;
   private musicGain: GainNode | null = null;
   private musicOsc: OscillatorNode | null = null;
   private musicHowl: Howl | null = null;
@@ -25,6 +30,70 @@ export class AudioManager {
     } catch {
       this.ctx = null;
     }
+    this.loadMusicSettings();
+  }
+
+  private loadMusicSettings(): void {
+    try {
+      const storedVolume = localStorage.getItem(MUSIC_VOLUME_KEY);
+      if (storedVolume != null) {
+        const parsed = Number.parseFloat(storedVolume);
+        if (Number.isFinite(parsed)) {
+          this.musicVolume = clamp(parsed, 0, 1);
+        }
+      }
+      this.musicMuted = localStorage.getItem(MUSIC_MUTED_KEY) === '1';
+    } catch {
+      /* private browsing / blocked storage */
+    }
+  }
+
+  private saveMusicSettings(): void {
+    try {
+      localStorage.setItem(MUSIC_VOLUME_KEY, String(this.musicVolume));
+      localStorage.setItem(MUSIC_MUTED_KEY, this.musicMuted ? '1' : '0');
+    } catch {
+      /* private browsing / blocked storage */
+    }
+  }
+
+  private effectiveMusicVolume(): number {
+    if (this.muted || this.musicMuted) return 0;
+    return this.musicVolume;
+  }
+
+  private applyMusicVolume(): void {
+    if (this.musicHowl) {
+      this.musicHowl.volume(this.effectiveMusicVolume());
+    }
+    if (this.musicGain) {
+      this.musicGain.gain.value = this.muted ? 0 : 0.08;
+    }
+  }
+
+  getMusicVolume(): number {
+    return this.musicVolume;
+  }
+
+  setMusicVolume(volume: number): void {
+    this.musicVolume = clamp(volume, 0, 1);
+    this.saveMusicSettings();
+    this.applyMusicVolume();
+  }
+
+  isMusicMuted(): boolean {
+    return this.musicMuted;
+  }
+
+  setMusicMuted(muted: boolean): void {
+    this.musicMuted = muted;
+    this.saveMusicSettings();
+    this.applyMusicVolume();
+  }
+
+  toggleMusicMuted(): boolean {
+    this.setMusicMuted(!this.musicMuted);
+    return this.musicMuted;
   }
 
   resume(): void {
@@ -33,12 +102,7 @@ export class AudioManager {
 
   toggleMute(): boolean {
     this.muted = !this.muted;
-    if (this.musicHowl) {
-      this.musicHowl.volume(this.muted ? 0 : MUSIC_VOLUME);
-    }
-    if (this.musicGain) {
-      this.musicGain.gain.value = this.muted ? 0 : 0.08;
-    }
+    this.applyMusicVolume();
     return this.muted;
   }
 
@@ -188,7 +252,7 @@ export class AudioManager {
     this.musicHowl = new Howl({
       src: [track],
       loop: true,
-      volume: MUSIC_VOLUME,
+      volume: this.effectiveMusicVolume(),
       html5: true,
     });
     this.musicHowl.play();

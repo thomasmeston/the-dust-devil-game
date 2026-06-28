@@ -10,10 +10,10 @@ export class HUD {
   private timerEl: HTMLSpanElement;
   private levelEl: HTMLSpanElement;
   private starsEl: HTMLDivElement;
-  private hintEl: HTMLSpanElement;
   private pickupNameEl: HTMLSpanElement;
   private inventorySignEl: HTMLDivElement;
   private inventoryKeyEl: HTMLElement;
+  private pauseBtnEl: HTMLButtonElement;
   private pickupFadeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(container: HTMLElement) {
@@ -22,6 +22,7 @@ export class HUD {
     this.el.innerHTML = `
       <div class="hud-top">
         <div class="hud-top-left">
+          <button type="button" class="hud-pause-btn hud-pause-btn--hidden" aria-label="Pause">⏸</button>
           <span class="hud-level"></span>
           <div class="hud-stars"></div>
         </div>
@@ -44,7 +45,6 @@ export class HUD {
           <span class="hud-total-mass__value">0.0</span>
         </div>
       </div>
-      <span class="hud-hint"></span>
     `;
     container.appendChild(this.el);
     this.massFill = this.el.querySelector('.hud-mass-fill')!;
@@ -53,10 +53,10 @@ export class HUD {
     this.timerEl = this.el.querySelector('.hud-timer')!;
     this.levelEl = this.el.querySelector('.hud-level')!;
     this.starsEl = this.el.querySelector('.hud-stars')!;
-    this.hintEl = this.el.querySelector('.hud-hint')!;
     this.pickupNameEl = this.el.querySelector('.hud-pickup-name')!;
     this.inventorySignEl = this.el.querySelector('.hud-inventory-sign')!;
     this.inventoryKeyEl = this.el.querySelector('.hud-inventory-sign__key')!;
+    this.pauseBtnEl = this.el.querySelector('.hud-pause-btn')!;
     this.injectStyles();
     this.setMobileMode(isMobileUi());
     this.setStars(0);
@@ -75,6 +75,22 @@ export class HUD {
       }
       .hud-top { display: flex; justify-content: space-between; align-items: flex-start; }
       .hud-top-left { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+      .hud-pause-btn {
+        pointer-events: auto;
+        padding: 6px 12px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #fff;
+        background: rgba(0,0,0,0.4);
+        border: 2px solid rgba(255,255,255,0.25);
+        border-radius: 8px;
+        cursor: pointer;
+        line-height: 1;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .hud-pause-btn--hidden { display: none; }
+      .hud-pause-btn:active { transform: scale(0.97); }
       .hud-level {
         font-size: 0.95rem; font-weight: 800; color: #fff;
         text-shadow: 0 2px 4px rgba(0,0,0,0.5);
@@ -163,7 +179,6 @@ export class HUD {
       .hud-mass-label { display: block; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.5); margin-bottom: 6px; font-weight: 700; font-size: 0.95rem; }
       .hud-mass-bar { height: 12px; background: rgba(0,0,0,0.35); border-radius: 6px; overflow: hidden; border: 2px solid rgba(255,255,255,0.3); }
       .hud-mass-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #fbbf24, #f97316); border-radius: 4px; transition: width 0.2s; }
-      .hud-hint { position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.7); font-size: 0.85rem; text-align: center; max-width: 90%; }
       .hud-inventory-sign--mobile {
         pointer-events: auto;
         cursor: pointer;
@@ -180,7 +195,6 @@ export class HUD {
         .hud-level { font-size: 0.82rem; }
         .hud-mass-label { font-size: 0.85rem; }
         .hud-total-mass { min-width: 5.5rem; padding: 8px 10px; }
-        .hud-hint { bottom: 38%; font-size: 0.78rem; }
         .hud-bottom { flex-wrap: wrap; gap: 8px; }
       }
     `;
@@ -223,12 +237,12 @@ export class HUD {
       .join('');
   }
 
-  setHint(text: string): void {
-    this.hintEl.textContent = text;
-  }
-
   setInventorySignVisible(visible: boolean): void {
     this.inventorySignEl.classList.toggle('hud-inventory-sign--hidden', !visible);
+  }
+
+  setPauseVisible(visible: boolean): void {
+    this.pauseBtnEl.classList.toggle('hud-pause-btn--hidden', !visible);
   }
 
   setMobileMode(mobile: boolean): void {
@@ -240,6 +254,15 @@ export class HUD {
     this.inventorySignEl.addEventListener('pointerup', (e) => {
       if (!this.inventorySignEl.classList.contains('hud-inventory-sign--mobile')) return;
       if (this.inventorySignEl.classList.contains('hud-inventory-sign--hidden')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      callback();
+    });
+  }
+
+  onPauseTap(callback: () => void): void {
+    this.pauseBtnEl.addEventListener('click', (e) => {
+      if (this.pauseBtnEl.classList.contains('hud-pause-btn--hidden')) return;
       e.preventDefault();
       e.stopPropagation();
       callback();

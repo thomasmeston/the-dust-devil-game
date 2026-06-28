@@ -1,4 +1,5 @@
 const TOUCH_DEAD_ZONE = 0.15;
+const MOUSE_STEER_DEAD_ZONE = 0.35;
 
 export class InputManager {
   keys = {
@@ -12,7 +13,10 @@ export class InputManager {
   boostEnabled = false;
   private dismissPressed = false;
   private inventoryPressed = false;
+  private escapePressed = false;
   private touchMove = { x: 0, z: 0 };
+  private mouseSteering = false;
+  private mouseSteerTarget: { x: number; z: number } | null = null;
 
   constructor() {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -22,6 +26,27 @@ export class InputManager {
   setTouchMove(x: number, z: number): void {
     this.touchMove.x = x;
     this.touchMove.z = z;
+    if (Math.hypot(x, z) > TOUCH_DEAD_ZONE) {
+      this.stopMouseSteer();
+    }
+  }
+
+  setMouseSteering(active: boolean): void {
+    this.mouseSteering = active;
+    if (!active) this.mouseSteerTarget = null;
+  }
+
+  setMouseSteerTarget(x: number, z: number): void {
+    this.mouseSteerTarget = { x, z };
+  }
+
+  stopMouseSteer(): void {
+    this.mouseSteering = false;
+    this.mouseSteerTarget = null;
+  }
+
+  private clearMovementOverrides(): void {
+    this.stopMouseSteer();
   }
 
   requestInventoryToggle(): void {
@@ -33,10 +58,15 @@ export class InputManager {
   }
 
   private isDismissKey(code: string): boolean {
-    return code === 'Space' || code === 'Enter' || code === 'Escape';
+    return code === 'Space' || code === 'Enter';
   }
 
   private onKeyDown(e: KeyboardEvent): void {
+    if (e.code === 'Escape') {
+      this.escapePressed = true;
+      e.preventDefault();
+      return;
+    }
     if (this.isDismissKey(e.code)) {
       this.dismissPressed = true;
       e.preventDefault();
@@ -52,18 +82,22 @@ export class InputManager {
       case 'KeyW':
       case 'ArrowUp':
         this.keys.forward = true;
+        this.clearMovementOverrides();
         break;
       case 'KeyS':
       case 'ArrowDown':
         this.keys.backward = true;
+        this.clearMovementOverrides();
         break;
       case 'KeyA':
       case 'ArrowLeft':
         this.keys.left = true;
+        this.clearMovementOverrides();
         break;
       case 'KeyD':
       case 'ArrowRight':
         this.keys.right = true;
+        this.clearMovementOverrides();
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
@@ -109,7 +143,13 @@ export class InputManager {
     return true;
   }
 
-  getMovementVector(): { x: number; z: number } {
+  consumeEscape(): boolean {
+    if (!this.escapePressed) return false;
+    this.escapePressed = false;
+    return true;
+  }
+
+  getMovementVector(playerX = 0, playerZ = 0): { x: number; z: number } {
     const touchLen = Math.hypot(this.touchMove.x, this.touchMove.z);
     if (touchLen > TOUCH_DEAD_ZONE) {
       return { x: this.touchMove.x / touchLen, z: this.touchMove.z / touchLen };
@@ -125,7 +165,19 @@ export class InputManager {
     if (len > 0) {
       x /= len;
       z /= len;
+      return { x, z };
     }
-    return { x, z };
+
+    if (this.mouseSteering && this.mouseSteerTarget) {
+      const dx = this.mouseSteerTarget.x - playerX;
+      const dz = this.mouseSteerTarget.z - playerZ;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= MOUSE_STEER_DEAD_ZONE) {
+        return { x: 0, z: 0 };
+      }
+      return { x: dx / dist, z: dz / dist };
+    }
+
+    return { x: 0, z: 0 };
   }
 }

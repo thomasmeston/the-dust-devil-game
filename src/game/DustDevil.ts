@@ -112,7 +112,7 @@ export class DustDevil {
       return;
     }
 
-    const move = input.getMovementVector();
+    const move = input.getMovementVector(this.position.x, this.position.z);
     let speed = this.speed;
     this.isBoosting = !!(input.keys.boost && input.boostEnabled);
     if (this.isBoosting) speed *= boostMultiplier;

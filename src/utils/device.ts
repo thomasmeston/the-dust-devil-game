@@ -17,22 +17,25 @@ export interface ControlHints {
   playingBoost: string;
   thoughtBubble: string;
   inventoryClose: string;
+  pauseClose: string;
 }
 
 export const controlHints = {
   desktop: {
-    title: 'WASD to move · Shift to boost (Forest+) · Space / Enter / Esc to close dialogue',
+    title: 'WASD or click-and-hold to steer · Shift to boost (Forest+) · Space / Enter / Esc to close dialogue',
     playing: 'WASD to swirl · Absorb things smaller than you',
     playingBoost: 'WASD to swirl · Shift to boost · Absorb things smaller than you',
     thoughtBubble: 'Space / Enter to continue',
     inventoryClose: 'Tab to close',
+    pauseClose: 'Esc to resume',
   },
   mobile: {
-    title: 'Joystick to move · Hold Boost (Forest+) · Tap dialogue to continue',
-    playing: 'Joystick to swirl · Tap Inventory · Absorb things smaller than you',
-    playingBoost: 'Joystick to swirl · Hold Boost · Tap Inventory',
+    title: 'Drag lower screen to move · Hold Boost (Forest+) · Tap dialogue to continue',
+    playing: '',
+    playingBoost: '',
     thoughtBubble: 'Tap to continue',
     inventoryClose: 'Tap × to close',
+    pauseClose: 'Tap Resume to continue',
   },
 } as const;
 

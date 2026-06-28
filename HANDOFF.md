@@ -44,8 +44,21 @@ Play-test affected stages in the browser — build passing alone is not enough f
 | WIP branch pattern | `wip/*` for checkpoints between machines |
 
 **Last handoff update:** 2026-06-21  
-**Last committed checkpoint:** `80a1db8` — *Add AGENTS.md and refresh CURRENT_TASK checkpoint.*  
-**Remote baseline before large local WIP:** `dd94ac2` — procedural props + dust devil visual polish
+**Last committed checkpoint:** `15581f3` — *Polish desert gameplay and add in-repo handoff docs.*  
+**Local uncommitted:** UI/input polish (pause menu, mouse steer, blurred title screens) — see below
+
+---
+
+## Controls (current behavior)
+
+| Platform | Move | Other |
+|----------|------|-------|
+| **Desktop keyboard** | WASD / arrows | Shift = boost (Forest+); Tab = inventory; Esc = pause menu |
+| **Desktop mouse** | Click-and-hold on canvas, drag to steer (raycast to ground) | Release to stop; keyboard/touch cancel mouse steer |
+| **Mobile / touch** | Invisible drag zone (lower-center); no on-screen joystick | Boost button (Forest+); tap HUD inventory / ⏸ pause |
+| **All** | Thought bubble: Space/Enter (desktop) or tap (mobile) | Title mute = global sound on/off; pause menu = music volume only |
+
+Music volume in the pause menu persists in `localStorage` (`dust-devil-music-volume`, `dust-devil-music-muted`). Title-screen “Sound: On/Off” still toggles global mute (all audio).
 
 ---
 
@@ -53,9 +66,9 @@ Play-test affected stages in the browser — build passing alone is not enough f
 
 ```
 src/main.ts          → bootstraps Game
-src/game/Game.ts     → main loop, state machine, wires all systems
+src/game/Game.ts     → main loop, state machine, input routing, menu backdrops
 src/game/            → gameplay systems (see table below)
-src/ui/              → HUD, inventory, thought bubbles, touch controls
+src/ui/              → HUD, overlays, pause menu, touch controls
 src/data/loader.ts   → loads JSON from data/
 data/levels/*.json   → per-stage layout (desert → downtown)
 data/objects.json    → absorbable object defs (mass, mesh, behavior flags)
@@ -69,21 +82,33 @@ public/audio/        → stage soundtracks + sfx
 
 | System | File(s) | Responsibility |
 |--------|---------|----------------|
-| Main loop & stage flow | `Game.ts` | Title → stages → win; story pauses; UFO; cutscenes |
+| Main loop & stage flow | `Game.ts` | Title → stages → win; menu backdrops; mouse steer; pause; UFO; cutscenes |
 | Player | `DustDevil.ts` | Movement, mass, boost, border spring + wind gust pushback |
+| Input | `InputManager.ts` | Keyboard, touch vector, mouse hold-steer target; Esc/Tab/dismiss |
 | Absorption | `AbsorptionSystem.ts` | Pickup radius, flee/chase AI, animal behaviors, trails |
 | Stages | `StageManager.ts` | Ground plane, props, spawn grid, borders, stage transitions |
 | Props (procedural) | `PropFactory.ts` | Tortoise, snake, goat, Joshua tree, suburban meshes, etc. |
-| Particles | `ParticleSwirl.ts` | Dust/dirt trails, wind gust particles |
-| Audio | `AudioManager.ts` | Music per stage, synthesized SFX (wind, tortoise shell, UFO) |
+| Particles | `ParticleSwirl.ts` | Dust/dirt trails, wind gust particles, sweat |
+| Audio | `AudioManager.ts` | Music per stage, SFX, music volume/mute (localStorage) |
 | Camera | `CameraController.ts` | Isometric follow, shake, axis alignment (`constants.ts`) |
 | Desert UFO | `DesertUfo.ts` | Fly-by state machine, shadow, absorption gate at 130 mass |
 | Ground textures | `GroundTextureLoader.ts` | Biome diff/normal maps, material tuning |
-| Borders | `src/utils/bounds.ts`, `BorderMountains.ts` | Playable inset; mountain ring (may be disabled in WIP) |
-| UI | `UIManager.ts`, `HUD.ts`, `ThoughtBubble.ts` | Overlays, Level 1 completion video |
+| Borders | `src/utils/bounds.ts`, `BorderMountains.ts` | Playable inset; mountain ring disabled for seamless-border test |
+| UI overlays | `UIManager.ts` | Title / complete / credits with **blurred live level** backdrop; video cutscene |
+| Pause menu | `PauseMenu.ts` | Esc overlay — music volume slider, mute, resume |
+| HUD | `HUD.ts` | Mass, timer, inventory sign, ⏸ pause button (no bottom hint text) |
+| Touch | `TouchControls.ts` | Invisible move zone + boost button (no visible joystick) |
 | Story | `StoryManager.ts` | Beat queue from `script.json` |
+| Device hints | `src/utils/device.ts` | Desktop/mobile control copy for title screen etc. |
 
 Entry point for new gameplay logic: start in `Game.ts` update loop, then the relevant system.
+
+### Menu / title backdrop flow
+
+- `Game.loadMenuBackdrop(stageId)` — preloads assets, loads level geometry, positions player + camera
+- `Game.bootstrapTitleScreen()` — desert backdrop, then `UIManager.showTitle()`
+- Render loop calls `updateMenuBackdrop()` for `title`, `stage_intro`, `stage_complete`, `credits` so the 3D scene stays live behind frosted overlays
+- `UIManager` screens use `backdrop-filter: blur(16px)` + semi-transparent tint (video cutscene stays solid black)
 
 ---
 
@@ -101,62 +126,68 @@ Stage order and titles: `src/utils/constants.ts` (`STAGE_ORDER`, `STAGE_TITLES`)
 
 ---
 
+## Shipped on `main` (`15581f3`)
+
+Committed and pushed — desert gameplay polish + handoff docs:
+
+| Area | Summary |
+|------|---------|
+| UFO event | Fly-by SM, blob shadow, 130 mass gate, spin + sci-fi sfx |
+| Snake | Longer/skinny, 12 segments, S-path, slither wave |
+| Borders | 3.5× ground visual, spring pushback, 65% outward speed penalty; border mountains disabled |
+| Camera | Yaw 0° — screen axes align with map |
+| Level 1 cutscene | Fullscreen MP4 on desert complete (`public/a_dust_devil_picking_items_up.mp4`) |
+| Wind gust | Player border impulse, whistle sfx, particles, camera shake |
+| Animal border wind | Jackrabbit, tortoise, snake, goat pushback + sfx + particles |
+| Tortoise AI | Pop/hide/peek, shell sfx, sweat droplets, shake, “May I shell pick you up?” bubble |
+| Desert floor | New sand diff/normal JPGs, high normal scale |
+| Joshua tree | Branching trunk + Fibonacci spike balls |
+| Handoff | `HANDOFF.md`; `AGENTS.md` / `CURRENT_TASK.md` cross-links |
+
+---
+
 ## Active WIP (uncommitted as of 2026-06-21)
 
-> Detail list also lives in `CURRENT_TASK.md` — keep both in sync when scope changes.
-
-Large local changes **not yet on `main`**. Before switching machines, commit to `wip/*` and push, or risk losing work.
+> Commit to `wip/*` or `main` when Thomas asks. Before switching machines, push or risk losing work.
 
 | Area | Summary | Primary files |
 |------|---------|---------------|
-| UFO event | Fly-by SM, blob shadow, 130 mass gate, spin + sci-fi sfx | `DesertUfo.ts`, `Game.ts`, `AudioManager.ts` |
-| Snake | Longer/skinny, 12 segments, S-path, slither wave | `PropFactory.ts`, `AbsorptionSystem.ts`, `objects.json` |
-| Borders | 3.5× ground visual, spring pushback, 65% outward speed penalty; mountains disabled for test | `StageManager.ts`, `DustDevil.ts` |
-| Camera | Yaw 0° — screen axes align with map | `constants.ts`, `CameraController.ts` |
-| Level 1 cutscene | Fullscreen MP4 on desert complete | `UIManager.ts`, `Game.ts`, `public/a_dust_devil_picking_items_up.mp4` |
-| Wind gust | Player border impulse, whistle sfx, particles, camera shake | `DustDevil.ts`, `AudioManager.ts`, `ParticleSwirl.ts`, `Game.ts` |
-| Animal border wind | Jackrabbit, tortoise, snake, goat pushback + sfx + particles | `PropFactory.ts`, `AbsorptionSystem.ts`, `Game.ts` |
-| Tortoise AI | Pop/hide/peek state machine, shell sfx, sweat droplets, shake, speech bubble | `PropFactory.ts`, `AbsorptionSystem.ts`, `AudioManager.ts`, `Game.ts` |
-| Desert floor | New sand diff/normal JPGs, high normal scale | `GroundTextureLoader.ts`, `public/textures/desert_*.jpg` |
-| Joshua tree | Branching trunk + Fibonacci spike balls | `PropFactory.ts` |
+| Pause menu | Esc (or HUD ⏸) — music volume slider, mute, resume; pauses gameplay | `PauseMenu.ts`, `Game.ts`, `AudioManager.ts`, `InputManager.ts`, `HUD.ts` |
+| Mouse steer | Click-and-hold on canvas steers toward cursor on ground plane | `Game.ts`, `InputManager.ts`, `DustDevil.ts` |
+| Touch UI | Joystick visual removed; invisible move zone retained | `TouchControls.ts` |
+| HUD | Bottom hint text removed; pause button added | `HUD.ts`, `Game.ts` |
+| Blurred menus | Title / stage intro / complete / credits show text over blurred live level | `UIManager.ts`, `Game.ts` (`loadMenuBackdrop`, `bootstrapTitleScreen`) |
+| Hints | Title copy: “WASD or click-and-hold to steer” | `device.ts` |
 
 ### Modified file index (git)
 
 ```
-CURRENT_TASK.md
-data/objects.json
-public/a_dust_devil_picking_items_up.mp4   (untracked)
-public/textures/desert_diff.jpg
-public/textures/desert_nor.jpg
-src/game/AbsorptionSystem.ts
-src/game/AudioManager.ts
-src/game/CameraController.ts
-src/game/DesertUfo.ts
-src/game/DustDevil.ts
-src/game/Game.ts
-src/game/GroundTextureLoader.ts
-src/game/ParticleSwirl.ts
-src/game/PropFactory.ts
-src/game/StageManager.ts
-src/ui/UIManager.ts
-src/utils/constants.ts
+src/game/AudioManager.ts      # music volume + mute persistence
+src/game/DustDevil.ts         # getMovementVector(player pos) for steer
+src/game/Game.ts              # pause, mouse steer, menu backdrop
+src/game/InputManager.ts      # mouse hold-steer, Esc handling
+src/ui/HUD.ts                 # pause button, hint removed
+src/ui/TouchControls.ts       # invisible move zone
+src/ui/UIManager.ts           # backdrop-filter blur overlays
+src/utils/device.ts           # control hint strings
+src/ui/PauseMenu.ts           # (untracked) new file
 ```
 
 ---
 
 ## Current priorities
 
-From `CURRENT_TASK.md` (update there first):
-
-1. **Play-test mountain stage** — goats, borders, flee, dirt trails, procedural props
-2. When satisfied → `npm run package:itch` or backlog items
+1. **Play-test mountain** (goats) — borders, flee, dirt trails, procedural props; verify pause menu + mouse steer on desktop
+2. **Commit session WIP** when Thomas requests (pause menu, mouse steer, blurred titles)
+3. When satisfied → `npm run package:itch` or backlog items
 
 ### Backlog (not blockers)
 
-- Loading screen during ~17 MB asset preload
+- Loading screen during ~17 MB asset preload (title backdrop load can show empty scene briefly)
 - Asset compression (smaller JPGs / Draco GLBs)
 - Touch/mobile polish or "keyboard required" on itch page
 - itch.io upload when Thomas is ready
+- Re-enable border mountains in `StageManager.ts` when art direction settles
 
 ---
 
@@ -165,8 +196,8 @@ From `CURRENT_TASK.md` (update there first):
 | Check | Command / action | When |
 |-------|------------------|------|
 | Typecheck + build | `npm run build` | Any TS or game logic change |
-| Dev smoke | `npm run dev` — title → desert, no console errors | UI/gameplay changes |
-| Play-test | Walk affected stages in browser | Before claiming feel is done |
+| Dev smoke | `npm run dev` — blurred desert title → play → desert, no console errors | UI/gameplay changes |
+| Play-test | Walk affected stages; test Esc pause, mouse hold-steer, mobile touch zone | Before claiming feel is done |
 | Relative assets | `npm run preview` | After Vite `base` or public URL changes |
 | itch package | `npm run package:itch` | Before itch upload |
 
@@ -199,10 +230,13 @@ Next session: `git pull`, read the three docs above, `git status`, continue.
 ## Known gotchas
 
 - **Port 5173 in use** — Vite picks the next free port (e.g. 5174); check terminal output
-- **Border mountains disabled in WIP** — intentional for seamless-border testing; re-enable in `StageManager.ts` when art direction settles
-- **MP4 cutscene** — large binary; ensure it is committed or pushed when switching machines
+- **Title load delay** — desert backdrop preloads before title appears; brief empty canvas possible
+- **Border mountains disabled** — intentional for seamless-border testing in `StageManager.ts`
+- **MP4 cutscene** — large binary; already on `main` at `public/a_dust_devil_picking_items_up.mp4`
+- **Global mute vs music mute** — title “Sound: Off” mutes everything; pause menu only affects music volume
+- **Mouse steer** — desktop only (`pointerType === 'mouse'`); ignored when pause/inventory/dialogue open
 - **Agent OS path** — `C:\Users\thoma\agent-os` may not exist on all clones; this repo's docs are authoritative
-- **Live site lags local WIP** — GitHub Pages reflects `main` only; uncommitted work is local-only
+- **Git identity** — if commit fails on a new machine, set `user.name` / `user.email` or use author env vars
 
 ---
 
