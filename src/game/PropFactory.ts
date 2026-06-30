@@ -605,6 +605,186 @@ export function createSuburbanCarMesh(color: string, scale: [number, number, num
   return group;
 }
 
+type RockMeshProfile = 'boulder' | 'ridge';
+
+function createRockMesh(
+  color: string,
+  scale: [number, number, number],
+  profile: RockMeshProfile
+): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const base = new THREE.Color(color);
+  const rockLight = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#D6D3D1'), profile === 'ridge' ? 0.38 : 0.32),
+  });
+  const rockMid = new THREE.MeshToonMaterial({ color: base });
+  const rockDark = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#292524'), profile === 'ridge' ? 0.52 : 0.48),
+  });
+  const rockWarm = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#78716C'), 0.25),
+  });
+  const rockGranite = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#E7E5E4'), 0.42),
+  });
+  const mossMat = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#4D7C0F'), 0.55),
+  });
+  const lichenMat = new THREE.MeshToonMaterial({
+    color: base.clone().lerp(new THREE.Color('#64748B'), 0.35),
+  });
+  const mats = [rockMid, rockLight, rockDark, rockWarm];
+  const flatness = profile === 'ridge' ? 0.58 : 0.74;
+
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(sx * 0.46, 2), rockMid);
+  core.position.y = sy * 0.44;
+  core.scale.set(1.08, (sy / sx) * flatness, (sz / sx) * 1.02);
+  core.rotation.set(0.12, 0.48, -0.18);
+  group.add(core);
+
+  const lobe = new THREE.Mesh(new THREE.IcosahedronGeometry(sx * 0.28, 1), rockWarm);
+  lobe.position.set(-sx * 0.18, sy * (profile === 'ridge' ? 0.5 : 0.56), sz * 0.14);
+  lobe.scale.set(1.1, profile === 'ridge' ? 0.72 : 0.85, 1.15);
+  lobe.rotation.set(-0.35, 0.9, 0.2);
+  group.add(lobe);
+
+  if (profile === 'ridge') {
+    const shelf = new THREE.Mesh(new THREE.IcosahedronGeometry(sx * 0.22, 1), rockDark);
+    shelf.position.set(sx * 0.2, sy * 0.28, -sz * 0.16);
+    shelf.scale.set(1.2, 0.55, 1.05);
+    shelf.rotation.set(0.2, -0.6, 0.15);
+    group.add(shelf);
+  }
+
+  const chunks: [number, number, number, number, number, number][] =
+    profile === 'ridge'
+      ? [
+          [sx * 0.34, sy * 0.26, sz * 0.12, sx * 0.2, 1, 0],
+          [-sx * 0.3, sy * 0.22, -sz * 0.18, sx * 0.17, 2, 1],
+          [sx * 0.08, sy * 0.52, sz * 0.24, sx * 0.15, 0, 0],
+          [-sx * 0.12, sy * 0.44, -sz * 0.28, sx * 0.13, 1, 1],
+          [sx * 0.22, sy * 0.16, -sz * 0.3, sx * 0.11, 2, 0],
+          [-sx * 0.02, sy * 0.58, -sz * 0.06, sx * 0.1, 3, 1],
+          [sx * 0.38, sy * 0.34, -sz * 0.04, sx * 0.09, 0, 1],
+          [-sx * 0.34, sy * 0.3, sz * 0.24, sx * 0.08, 2, 0],
+          [sx * 0.14, sy * 0.36, sz * 0.32, sx * 0.07, 3, 2],
+          [-sx * 0.24, sy * 0.14, sz * 0.08, sx * 0.06, 1, 2],
+        ]
+      : [
+          [sx * 0.36, sy * 0.3, sz * 0.14, sx * 0.22, 1, 0],
+          [-sx * 0.32, sy * 0.24, -sz * 0.2, sx * 0.19, 2, 1],
+          [sx * 0.1, sy * 0.66, sz * 0.28, sx * 0.18, 0, 0],
+          [-sx * 0.14, sy * 0.54, -sz * 0.3, sx * 0.16, 1, 1],
+          [sx * 0.24, sy * 0.2, -sz * 0.34, sx * 0.13, 2, 0],
+          [-sx * 0.04, sy * 0.72, -sz * 0.08, sx * 0.12, 3, 1],
+          [sx * 0.42, sy * 0.42, -sz * 0.06, sx * 0.11, 0, 1],
+          [-sx * 0.38, sy * 0.38, sz * 0.28, sx * 0.1, 2, 0],
+        ];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const [cx, cy, cz, r, matIdx, geoKind] = chunks[i];
+    const geo =
+      geoKind === 0
+        ? new THREE.DodecahedronGeometry(r, 0)
+        : geoKind === 1
+          ? new THREE.OctahedronGeometry(r, 0)
+          : new THREE.IcosahedronGeometry(r, 0);
+    const chunk = new THREE.Mesh(geo, mats[matIdx % mats.length]);
+    chunk.position.set(cx, cy, cz);
+    chunk.rotation.set((i + 1) * 0.61, (i + 2) * 1.07, (i + 3) * 0.39);
+    chunk.scale.set(1, 0.7 + (i % 3) * 0.08, 1.04 + (i % 2) * 0.06);
+    group.add(chunk);
+  }
+
+  if (profile === 'boulder') {
+    for (const [mx, my, mz, rx, ry, mossScale] of [
+      [sx * 0.12, sy * 0.58, sz * 0.18, 0.4, 0.2, 1.2],
+      [-sx * 0.22, sy * 0.48, -sz * 0.12, -0.25, 0.55, 0.95],
+      [sx * 0.28, sy * 0.34, -sz * 0.22, 0.15, -0.35, 1.05],
+    ] as [number, number, number, number, number, number][]) {
+      const patch = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.11, 5, 4), mossMat);
+      patch.position.set(mx, my, mz);
+      patch.rotation.set(rx, ry, 0.3);
+      patch.scale.set(mossScale, 0.35, mossScale * 0.9);
+      group.add(patch);
+    }
+  } else {
+    for (const [lx, ly, lz, lichenScale] of [
+      [sx * 0.1, sy * 0.42, sz * 0.2, 1.15],
+      [-sx * 0.18, sy * 0.34, -sz * 0.1, 0.9],
+      [sx * 0.24, sy * 0.28, -sz * 0.18, 1.05],
+    ] as [number, number, number, number][]) {
+      const lichen = new THREE.Mesh(new THREE.SphereGeometry(sx * 0.09, 5, 4), lichenMat);
+      lichen.position.set(lx, ly, lz);
+      lichen.scale.set(lichenScale, 0.28, lichenScale * 0.85);
+      group.add(lichen);
+    }
+
+    const fleckGeo = new THREE.SphereGeometry(sx * 0.035, 4, 3);
+    for (let i = 0; i < 14; i++) {
+      const angle = i * 1.37;
+      const fleck = new THREE.Mesh(fleckGeo, i % 2 === 0 ? rockGranite : rockLight);
+      fleck.position.set(
+        Math.cos(angle) * sx * (0.18 + (i % 4) * 0.08),
+        sy * (0.22 + (i % 5) * 0.08),
+        Math.sin(angle) * sz * (0.16 + (i % 3) * 0.07)
+      );
+      group.add(fleck);
+    }
+  }
+
+  const creviceGeo = new THREE.BoxGeometry(sx * 0.04, sy * 0.55, sz * 0.03);
+  const creviceCount = profile === 'ridge' ? 5 : 3;
+  for (let i = 0; i < creviceCount; i++) {
+    const crevice = new THREE.Mesh(creviceGeo, rockDark);
+    crevice.position.set(
+      (i - 1) * sx * 0.07,
+      sy * (0.38 + (i % 3) * 0.08),
+      ((i % 2) * 2 - 1) * sz * 0.07
+    );
+    crevice.rotation.set(0.1 + i * 0.12, 0.35 + i * 0.18, (i % 2) * 0.08);
+    group.add(crevice);
+  }
+
+  const chipGeo = new THREE.TetrahedronGeometry(sx * 0.07, 0);
+  const flakeGeo = new THREE.OctahedronGeometry(sx * 0.05, 0);
+  const chipCount = profile === 'ridge' ? 10 : 8;
+  for (let i = 0; i < chipCount; i++) {
+    const angle = i * 0.85;
+    const chip = new THREE.Mesh(i % 2 === 0 ? chipGeo : flakeGeo, i % 3 === 0 ? rockLight : rockDark);
+    chip.position.set(
+      Math.cos(angle) * sx * 0.44,
+      sy * (0.05 + (i % 4) * 0.04),
+      Math.sin(angle) * sz * 0.38
+    );
+    chip.rotation.set(angle * 0.7, angle * 1.3, angle * 0.4);
+    chip.scale.setScalar(0.75 + (i % 3) * 0.15);
+    group.add(chip);
+  }
+
+  const bed = new THREE.Mesh(
+    new THREE.CylinderGeometry(sx * 0.52, sx * 0.58, sy * 0.06, 7),
+    rockDark
+  );
+  bed.position.y = sy * 0.03;
+  bed.scale.set(1, 1, sz / sx);
+  group.add(bed);
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Faceted boulder — layered rock chunks, moss, cracks, and scatter chips. */
+export function createBoulderMesh(color: string, scale: [number, number, number]): THREE.Group {
+  return createRockMesh(color, scale, 'boulder');
+}
+
+/** Ridge scatter rock — flat granite mass with lichen flecks and heavy facet detail. */
+export function createRidgeRockMesh(color: string, scale: [number, number, number]): THREE.Group {
+  return createRockMesh(color, scale, 'ridge');
+}
+
 /** Joshua tree — forked trunk with spiky yucca crowns. */
 export function createJoshuaTreeMesh(color: string, scale: [number, number, number]): THREE.Group {
   const group = new THREE.Group();
@@ -797,6 +977,10 @@ function createCustomPropMesh(type: string, def: ObjectDef): THREE.Group | null 
   if (type === 'snake') return createSnakeMesh(def.color, def.scale);
   if (type === 'car') return createSuburbanCarMesh(def.color, def.scale);
   if (type === 'small_house') return createSuburbanHouseMesh(def.color, def.scale);
+  if (type === 'boulder') return createBoulderMesh(def.color, def.scale);
+  if (type === 'ridge_rock' || type === 'ridge_boulder') {
+    return createRidgeRockMesh(def.color, def.scale);
+  }
   if (type === 'joshua_tree') return createJoshuaTreeMesh(def.color, def.scale);
   if (type === 'wood_fence') return createWoodFenceMesh(def.color, def.scale);
   if (type === 'solar_farm') return createSolarFarmMesh(def.color, def.scale);
@@ -867,6 +1051,8 @@ export async function createAbsorbableProp(
     oldZ: z,
   };
   mesh.position.set(x, mesh.position.y, z);
+  mesh.userData.devPropType = type;
+  mesh.userData.devPropId = prop.id;
   if (type === 'snake' || type === 'tortoise') {
     const h = prop.wanderHeading;
     mesh.rotation.y = facingAngleY(Math.cos(h), Math.sin(h), mesh.rotation.y);
@@ -876,6 +1062,49 @@ export async function createAbsorbableProp(
 
 export function resetPropIds(): void {
   nextPropId = 0;
+}
+
+export function disposePropMesh(mesh: THREE.Object3D): void {
+  mesh.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.geometry.dispose();
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of mats) mat.dispose();
+    }
+  });
+}
+
+/** Rebuild a grounded prop mesh from an updated object definition. */
+export async function rebuildPropMesh(
+  prop: AbsorbableProp,
+  type: string,
+  def: ObjectDef
+): Promise<THREE.Object3D> {
+  const oldMesh = prop.mesh;
+  const { x: rotX, y: rotY, z: rotZ } = oldMesh.rotation;
+  const groundY = prop.position.y;
+
+  const custom = createCustomPropMesh(type, def);
+  const newMesh = custom ?? (await createPropMeshFromDef(def));
+  newMesh.rotation.set(rotX, rotY, rotZ);
+
+  if (custom || def.model || rotX !== 0 || rotZ !== 0) {
+    groundAlignMesh(newMesh, groundY);
+  } else {
+    newMesh.position.y = def.scale[1] / 2;
+  }
+
+  newMesh.position.x = prop.position.x;
+  newMesh.position.z = prop.position.z;
+
+  prop.radius = custom || def.model ? meshRadius(newMesh) : Math.max(...def.scale) * 0.6;
+  prop.mass = def.mass;
+  prop.sizeClass = def.sizeClass;
+  prop.mesh = newMesh;
+  newMesh.userData.devPropType = type;
+  newMesh.userData.devPropId = prop.id;
+
+  return oldMesh;
 }
 
 export function collectModelIds(defs: Record<string, ObjectDef>): string[] {

@@ -7,7 +7,7 @@ Low-poly GLB models are in `public/models/` (authored via Blender MCP). Ground t
 | Stage | Poly Haven texture |
 |-------|-------------------|
 | Desert | aerial_sand |
-| Mountain | aerial_rocks_02 |
+| Mountain | aerial_rocks_04 (mossy alpine rock) |
 | Forest | brown_mud_leaves_01 |
 | Suburbs | aerial_grass_rock |
 | Downtown | asphalt_01 |

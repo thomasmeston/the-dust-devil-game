@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canAbsorb, MAX_ORBIT_SLOTS } from '../utils/constants';
+import { canAbsorbProp, MAX_ORBIT_SLOTS } from '../utils/constants';
 import { clampXZ } from '../utils/bounds';
 import { directionAway, distanceXZ, facingAngleY } from '../utils/math';
 import type { DustDevil } from './DustDevil';
@@ -305,7 +305,7 @@ export class AbsorptionSystem {
 
       if (prop.state === 'grounded' || prop.state === 'wobble') {
         if (dist <= player.pullRadius) {
-          if (canAbsorb(player.sizeClass, prop.sizeClass)) {
+          if (canAbsorbProp(player.sizeClass, player.radius, prop.sizeClass, prop.radius)) {
             if (this.orbiters.length < MAX_ORBIT_SLOTS) {
               prop.state = 'orbit';
               prop.mesh.userData.baseY = prop.mesh.position.y;

@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { devObjectSavePlugin } from './vite-plugins/devObjectSave';
 
 export default defineConfig({
   base: './',
+  plugins: [devObjectSavePlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

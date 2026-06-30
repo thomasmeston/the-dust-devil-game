@@ -17,3 +17,13 @@ export const LEVELS: Record<string, LevelDef> = {
 
 export const OBJECTS = objectDefs as unknown as Record<string, ObjectDef>;
 export const STORY = storyScript as StoryScript;
+
+export function cloneObjectDefs(
+  source: Record<string, ObjectDef>
+): Record<string, ObjectDef> {
+  const out: Record<string, ObjectDef> = {};
+  for (const [key, def] of Object.entries(source)) {
+    out[key] = { ...def, scale: [...def.scale] as [number, number, number] };
+  }
+  return out;
+}

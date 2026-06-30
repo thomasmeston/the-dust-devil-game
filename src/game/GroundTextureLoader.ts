@@ -15,7 +15,7 @@ export const BIOME_TEXTURE_SOURCES: Record<
   mountain: {
     diffuse: publicUrl('textures/mountain_diff.jpg'),
     normal: publicUrl('textures/mountain_nor.jpg'),
-    credit: 'Poly Haven — aerial_rocks_02',
+    credit: 'Poly Haven — aerial_rocks_04',
   },
   forest: {
     diffuse: publicUrl('textures/forest_diff.jpg'),
@@ -71,7 +71,10 @@ class GroundTextureLoader {
       return new THREE.MeshToonMaterial({ color: tint });
     }
 
-    const repeat = Math.max(width, depth) / 14;
+    const repeat =
+      stageId === 'mountain'
+        ? Math.max(width, depth) / 12
+        : Math.max(width, depth) / 14;
     const diffClone = diffuse.clone();
     diffClone.repeat.set(repeat, repeat);
     diffClone.needsUpdate = true;
@@ -84,8 +87,12 @@ class GroundTextureLoader {
       normalClone.needsUpdate = true;
     }
 
-    const finalColor = stageId === 'desert' ? new THREE.Color(0xffffff) : new THREE.Color(tint);
-    const nScale = stageId === 'desert' ? 0.95 : 0.25;
+    const finalColor =
+      stageId === 'desert' || stageId === 'mountain'
+        ? new THREE.Color(0xffffff)
+        : new THREE.Color(tint);
+    const nScale =
+      stageId === 'desert' ? 0.95 : stageId === 'mountain' ? 0.78 : 0.25;
 
     return new THREE.MeshToonMaterial({
       map: diffClone,

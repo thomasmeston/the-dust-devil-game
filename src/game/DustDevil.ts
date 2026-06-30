@@ -21,6 +21,7 @@ export class DustDevil {
   sizeClass: SizeClass = 'tiny';
   minSizeClass: SizeClass = 'tiny';
   growthFactor = GROWTH_FACTOR;
+  private devSpeedMultiplier = 1;
   private boundsHalfX = 40;
   private boundsHalfZ = 40;
   private lastMoveX = 0;
@@ -43,7 +44,15 @@ export class DustDevil {
 
   get speed(): number {
     const penalty = this.radius * 0.15;
-    return Math.max(BASE_SPEED * 0.4, BASE_SPEED - penalty);
+    return Math.max(BASE_SPEED * 0.4, BASE_SPEED - penalty) * this.devSpeedMultiplier;
+  }
+
+  getDevSpeedMultiplier(): number {
+    return this.devSpeedMultiplier;
+  }
+
+  setDevSpeedMultiplier(multiplier: number): void {
+    this.devSpeedMultiplier = Math.max(0.25, Math.min(3, multiplier));
   }
 
   get moveSpeed(): number {
@@ -62,6 +71,7 @@ export class DustDevil {
     this.minSizeClass = minClass;
     this.sizeClass = minClass;
     this.growthFactor = growthFactor ?? GROWTH_FACTOR;
+    this.devSpeedMultiplier = 1;
     this.radius = massToRadius(0, this.growthFactor);
     this.updateVisuals();
     this.group.position.copy(this.position);
@@ -69,6 +79,14 @@ export class DustDevil {
 
   addMass(amount: number): void {
     this.mass += amount;
+    this.radius = massToRadius(this.mass, this.growthFactor);
+    this.sizeClass = playerSizeClassFromMass(this.mass, this.minSizeClass);
+    this.updateVisuals();
+  }
+
+  /** Dev override — set mass directly and refresh radius, class, and vortex scale. */
+  setDevMass(mass: number): void {
+    this.mass = Math.max(0, mass);
     this.radius = massToRadius(this.mass, this.growthFactor);
     this.sizeClass = playerSizeClassFromMass(this.mass, this.minSizeClass);
     this.updateVisuals();

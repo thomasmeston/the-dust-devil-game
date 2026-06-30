@@ -3,12 +3,14 @@ import type { LevelDef, ObjectDef } from '../types/game';
 import { BIOME_PALETTES, type StageId } from '../utils/constants';
 import {
   createAbsorbableProp,
+  disposePropMesh,
+  rebuildPropMesh,
   resetPropIds,
   type AbsorbableProp,
 } from './PropFactory';
 import { SpatialGrid } from './SpatialGrid';
 import { groundTextureLoader } from './GroundTextureLoader';
-import { addLowBoulderRidge } from './BorderMountains';
+import { generateLowBoulderRidgePlacements } from './BorderMountains';
 import { playableHalfExtents } from '../utils/bounds';
 
 export class StageManager {
@@ -103,6 +105,10 @@ export class StageManager {
       this.grid.insert(prop);
     }
 
+    if (stageId === 'mountain') {
+      await this.spawnMountainRidgeRocks(objectDefs);
+    }
+
     this.addBiomeDecor(stageId, level.width, level.depth);
 
     if (level.exitPosition && !level.winProp) {
@@ -160,6 +166,15 @@ export class StageManager {
     return this.level?.winProp === type;
   }
 
+  /** Unique absorbable prop types currently present on the level. */
+  getLevelObjectTypes(): string[] {
+    const types = new Set<string>();
+    for (const prop of this.props) {
+      if (prop.state !== 'absorbed') types.add(prop.type);
+    }
+    return [...types].sort();
+  }
+
   private addBiomeDecor(stageId: StageId, width: number, depth: number): void {
     const group = new THREE.Group();
     group.name = 'biomeDecor';
@@ -188,27 +203,6 @@ export class StageManager {
       group.add(mesh);
     }
 
-    if (stageId === 'mountain') {
-      const baseColor = new THREE.Color(palette.ground);
-      const rockColor = new THREE.Color(palette.accent).lerp(baseColor, 0.35);
-      const ridges = [
-        { x: -14, z: -20, spanX: 11, spanZ: 7 },
-        { x: 0, z: -2, spanX: 13, spanZ: 8 },
-        { x: 14, z: 16, spanX: 11, spanZ: 7 },
-      ];
-      for (const ridge of ridges) {
-        addLowBoulderRidge(
-          group,
-          ridge.x,
-          ridge.z,
-          ridge.spanX,
-          ridge.spanZ,
-          baseColor,
-          rockColor
-        );
-      }
-    }
-
     if (stageId === 'suburbs') {
       for (let row = -2; row <= 2; row++) {
         const geo = new THREE.PlaneGeometry(4, width * 0.85);
@@ -221,6 +215,90 @@ export class StageManager {
     }
 
     this.scene.add(group);
+  }
+
+  private async spawnMountainRidgeRocks(
+    objectDefs: Record<string, ObjectDef>
+  ): Promise<void> {
+    const defSmall = objectDefs.ridge_rock;
+    const defLarge = objectDefs.ridge_boulder;
+    if (!defSmall && !defLarge) return;
+
+    const ridges = [
+      { x: -14, z: -20, spanX: 11, spanZ: 7 },
+      { x: 0, z: -2, spanX: 13, spanZ: 8 },
+      { x: 14, z: 16, spanX: 11, spanZ: 7 },
+    ];
+
+    for (const ridge of ridges) {
+      const placements = generateLowBoulderRidgePlacements(
+        ridge.x,
+        ridge.z,
+        ridge.spanX,
+        ridge.spanZ
+      );
+      for (const placement of placements) {
+        const useLarge = placement.radius >= 0.82;
+        const baseDef = useLarge ? defLarge : defSmall;
+        if (!baseDef) continue;
+
+        const type = useLarge ? 'ridge_boulder' : 'ridge_rock';
+        const sizeT = placement.radius / (useLarge ? 0.95 : 0.65);
+        const [stretchX, stretchY, stretchZ] = placement.stretch;
+        const scaledDef: ObjectDef = {
+          ...baseDef,
+          scale: [
+            baseDef.scale[0] * sizeT * stretchX,
+            baseDef.scale[1] * sizeT * stretchY,
+            baseDef.scale[2] * sizeT * stretchZ,
+          ],
+        };
+
+        const prop = await createAbsorbableProp(
+          type,
+          scaledDef,
+          placement.x,
+          placement.z,
+          0,
+          placement.rotation
+        );
+        this.props.push(prop);
+        this.scene.add(prop.mesh);
+        this.grid.insert(prop);
+      }
+    }
+  }
+
+  async spawnRandomProp(
+    type: string,
+    def: ObjectDef
+  ): Promise<AbsorbableProp | null> {
+    if (!this.level) return null;
+
+    const margin = 3;
+    const halfX = Math.max(1, this.playableHalfX - margin);
+    const halfZ = Math.max(1, this.playableHalfZ - margin);
+    const x = (Math.random() * 2 - 1) * halfX;
+    const z = (Math.random() * 2 - 1) * halfZ;
+    const rotation = Math.random() * Math.PI * 2;
+
+    const prop = await createAbsorbableProp(type, def, x, z, 0, rotation);
+    this.props.push(prop);
+    this.scene.add(prop.mesh);
+    this.grid.insert(prop);
+    return prop;
+  }
+
+  async refreshPropsOfType(type: string, def: ObjectDef): Promise<void> {
+    for (const prop of this.props) {
+      if (prop.type !== type) continue;
+      if (prop.state === 'orbit' || prop.state === 'absorbed') continue;
+
+      const oldMesh = await rebuildPropMesh(prop, type, def);
+      this.scene.remove(oldMesh);
+      disposePropMesh(oldMesh);
+      this.scene.add(prop.mesh);
+    }
   }
 
   clear(): void {

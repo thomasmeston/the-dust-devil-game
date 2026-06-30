@@ -79,6 +79,17 @@ export function canAbsorb(playerClass: SizeClass, objectClass: SizeClass): boole
   return SIZE_CLASS_INDEX[objectClass] <= SIZE_CLASS_INDEX[playerClass];
 }
 
+/** Size class gate plus player must be physically large enough to swallow the prop. */
+export function canAbsorbProp(
+  playerClass: SizeClass,
+  playerRadius: number,
+  propClass: SizeClass,
+  propRadius: number
+): boolean {
+  if (!canAbsorb(playerClass, propClass)) return false;
+  return playerRadius >= propRadius * 0.78;
+}
+
 export function playerSizeClassFromMass(mass: number, stageMinClass: SizeClass): SizeClass {
   const idx = SIZE_CLASS_INDEX[stageMinClass];
   let classIdx = idx;

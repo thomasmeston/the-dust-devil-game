@@ -14,6 +14,7 @@ export class InputManager {
   private dismissPressed = false;
   private inventoryPressed = false;
   private escapePressed = false;
+  private devTogglePressed = false;
   private touchMove = { x: 0, z: 0 };
   private mouseSteering = false;
   private mouseSteerTarget: { x: number; z: number } | null = null;
@@ -74,6 +75,11 @@ export class InputManager {
     }
     if (e.code === 'Tab') {
       this.inventoryPressed = true;
+      e.preventDefault();
+      return;
+    }
+    if (e.code === 'Backquote') {
+      this.devTogglePressed = true;
       e.preventDefault();
       return;
     }
@@ -146,6 +152,12 @@ export class InputManager {
   consumeEscape(): boolean {
     if (!this.escapePressed) return false;
     this.escapePressed = false;
+    return true;
+  }
+
+  consumeDevToggle(): boolean {
+    if (!this.devTogglePressed) return false;
+    this.devTogglePressed = false;
     return true;
   }
 

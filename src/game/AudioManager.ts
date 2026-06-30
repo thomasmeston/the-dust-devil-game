@@ -12,13 +12,16 @@ const STAGE_TRACKS: Record<StageId, string> = {
 };
 
 const DEFAULT_MUSIC_VOLUME = 0.35;
+const DEFAULT_SFX_VOLUME = 1;
 const MUSIC_VOLUME_KEY = 'dust-devil-music-volume';
 const MUSIC_MUTED_KEY = 'dust-devil-music-muted';
+const SFX_VOLUME_KEY = 'dust-devil-sfx-volume';
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private muted = false;
   private musicVolume = DEFAULT_MUSIC_VOLUME;
+  private sfxVolume = DEFAULT_SFX_VOLUME;
   private musicMuted = false;
   private musicGain: GainNode | null = null;
   private musicOsc: OscillatorNode | null = null;
@@ -43,6 +46,13 @@ export class AudioManager {
         }
       }
       this.musicMuted = localStorage.getItem(MUSIC_MUTED_KEY) === '1';
+      const storedSfx = localStorage.getItem(SFX_VOLUME_KEY);
+      if (storedSfx != null) {
+        const parsed = Number.parseFloat(storedSfx);
+        if (Number.isFinite(parsed)) {
+          this.sfxVolume = clamp(parsed, 0, 1);
+        }
+      }
     } catch {
       /* private browsing / blocked storage */
     }
@@ -52,6 +62,7 @@ export class AudioManager {
     try {
       localStorage.setItem(MUSIC_VOLUME_KEY, String(this.musicVolume));
       localStorage.setItem(MUSIC_MUTED_KEY, this.musicMuted ? '1' : '0');
+      localStorage.setItem(SFX_VOLUME_KEY, String(this.sfxVolume));
     } catch {
       /* private browsing / blocked storage */
     }
@@ -60,6 +71,24 @@ export class AudioManager {
   private effectiveMusicVolume(): number {
     if (this.muted || this.musicMuted) return 0;
     return this.musicVolume;
+  }
+
+  private sfxGain(base: number): number {
+    if (this.muted) return 0;
+    return base * this.sfxVolume;
+  }
+
+  getSfxVolume(): number {
+    return this.sfxVolume;
+  }
+
+  setSfxVolume(volume: number): void {
+    this.sfxVolume = clamp(volume, 0, 1);
+    try {
+      localStorage.setItem(SFX_VOLUME_KEY, String(this.sfxVolume));
+    } catch {
+      /* private browsing / blocked storage */
+    }
   }
 
   private applyMusicVolume(): void {
@@ -116,7 +145,7 @@ export class AudioManager {
     const gain = this.ctx.createGain();
     osc.type = 'sine';
     osc.frequency.value = 200 + mass * 20;
-    gain.gain.value = 0.12;
+    gain.gain.value = this.sfxGain(0.12);
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start();
@@ -145,7 +174,7 @@ export class AudioManager {
     lfo.connect(lfoGain);
     lfoGain.connect(osc.frequency);
 
-    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.setValueAtTime(this.sfxGain(0.12), now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
 
     osc.connect(gain);
@@ -182,7 +211,7 @@ export class AudioManager {
 
     const gainNode = this.ctx.createGain();
     gainNode.gain.setValueAtTime(0.0, now);
-    gainNode.gain.linearRampToValueAtTime(0.55, now + 0.15);
+    gainNode.gain.linearRampToValueAtTime(this.sfxGain(0.55), now + 0.15);
     gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     noiseNode.connect(filter);
@@ -198,7 +227,7 @@ export class AudioManager {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.frequency.value = 520;
-    gain.gain.value = 0.08 * volumeMultiplier;
+    gain.gain.value = this.sfxGain(0.08 * volumeMultiplier);
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start();
@@ -219,7 +248,7 @@ export class AudioManager {
     osc.frequency.exponentialRampToValueAtTime(100, now + duration);
 
     gain.gain.setValueAtTime(0.0, now);
-    gain.gain.linearRampToValueAtTime(0.35, now + 0.06);
+    gain.gain.linearRampToValueAtTime(this.sfxGain(0.35), now + 0.06);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     osc.connect(gain);
@@ -236,7 +265,7 @@ export class AudioManager {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(330, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(660, this.ctx.currentTime + 0.3);
-    gain.gain.value = 0.1;
+    gain.gain.value = this.sfxGain(0.1);
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start();

@@ -22,7 +22,42 @@ function addBoulderToGroup(
   group.add(boulder);
 }
 
-/** Low, rounded ridge of boulders — visual terrain the player rolls over (no collision). */
+/** Placement data for absorbable ridge rocks (was decorative low boulder ridges). */
+export interface RidgeRockPlacement {
+  x: number;
+  z: number;
+  rotation: number;
+  radius: number;
+  stretch: [number, number, number];
+}
+
+export function generateLowBoulderRidgePlacements(
+  centerX: number,
+  centerZ: number,
+  spanX: number,
+  spanZ: number
+): RidgeRockPlacement[] {
+  const count = 12 + Math.floor(Math.random() * 8);
+  const placements: RidgeRockPlacement[] = [];
+  for (let i = 0; i < count; i++) {
+    const radius = 0.45 + Math.random() * 0.8;
+    const stretchY = 0.4 + Math.random() * 0.22;
+    placements.push({
+      x: centerX + (Math.random() - 0.5) * spanX,
+      z: centerZ + (Math.random() - 0.5) * spanZ,
+      rotation: Math.random() * Math.PI * 2,
+      radius,
+      stretch: [
+        0.8 + Math.random() * 0.35,
+        stretchY,
+        0.8 + Math.random() * 0.35,
+      ],
+    });
+  }
+  return placements;
+}
+
+/** @deprecated Decorative only — mountain ridges now spawn as absorbable props. */
 export function addLowBoulderRidge(
   group: THREE.Group,
   centerX: number,
