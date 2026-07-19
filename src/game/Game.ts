@@ -32,6 +32,10 @@ import { groundTextureLoader } from './GroundTextureLoader';
 import { DowntownTraffic } from './DowntownTraffic';
 import { DesertUfo } from './DesertUfo';
 import { publicUrl } from '../utils/publicUrl';
+import {
+  FOREST_RIVER_WATER_Y,
+  isInForestRiverWater,
+} from './ForestRiver';
 
 export class Game {
   private sceneManager: SceneManager;
@@ -121,8 +125,12 @@ export class Game {
       objectEditor: {
         getObjectTypes: () => this.stageManager.getLevelObjectTypes(),
         getObjectDef: (type) => this.runtimeObjects[type],
+        getOriginalObjectDef: (type) => OBJECTS[type],
         onObjectDefChange: (type, patch) => {
           this.applyObjectDefChange(type, patch);
+        },
+        onRevertToOriginal: (type) => {
+          this.revertObjectToOriginal(type);
         },
         onSpawnRandom: (type) => {
           this.spawnRandomDevObject(type);
@@ -708,7 +716,8 @@ export class Game {
 
   private applyObjectDefChange(
     type: string,
-    patch: { color?: string; scale?: [number, number, number] }
+    patch: { color?: string; scale?: [number, number, number] },
+    options?: { immediate?: boolean }
   ): void {
     const def = this.runtimeObjects[type];
     if (!def) return;
@@ -722,12 +731,41 @@ export class Game {
 
     if (this.objectRefreshTimer !== null) {
       clearTimeout(this.objectRefreshTimer);
-    }
-    this.objectRefreshTimer = setTimeout(() => {
       this.objectRefreshTimer = null;
+    }
+
+    const refresh = () => {
       if (this.state !== 'playing') return;
       void this.stageManager.refreshPropsOfType(type, def);
+    };
+
+    if (options?.immediate) {
+      refresh();
+      return;
+    }
+
+    this.objectRefreshTimer = setTimeout(() => {
+      this.objectRefreshTimer = null;
+      refresh();
     }, 120);
+  }
+
+  private revertObjectToOriginal(type: string): void {
+    const original = OBJECTS[type];
+    if (!original) return;
+
+    this.runtimeObjects[type] = {
+      ...original,
+      scale: [...original.scale] as [number, number, number],
+    };
+    this.applyObjectDefChange(
+      type,
+      {
+        color: original.color,
+        scale: [...original.scale] as [number, number, number],
+      },
+      { immediate: true }
+    );
   }
 
   private spawnRandomDevObject(type: string): void {
@@ -767,7 +805,25 @@ export class Game {
       }
     }
 
-    if (this.player.moveSpeed > 1) {
+    const onWater = isInForestRiverWater(this.player.position.x, this.player.position.z);
+    // Keep the dust devil sitting on the water surface (never under it)
+    if (onWater) {
+      this.player.position.y = FOREST_RIVER_WATER_Y + 0.02;
+      this.player.group.position.y = this.player.position.y;
+      this.particles.spawnWaterSplash(
+        this.player.position,
+        this.player.velocity.x,
+        this.player.velocity.z,
+        dt,
+        this.player.radius,
+        FOREST_RIVER_WATER_Y
+      );
+    } else if (this.player.position.y !== 0) {
+      this.player.position.y = 0;
+      this.player.group.position.y = 0;
+    }
+
+    if (this.player.moveSpeed > 1 && !onWater) {
       this.particles.spawnTrail(
         this.player.position,
         this.player.velocity.x,
@@ -835,6 +891,7 @@ export class Game {
       this.player.addMass(mass);
       this.onAbsorb({ type: 'ufo', mass, setPiece: false });
     });
+    this.stageManager.update(dt);
 
     this.elapsedSec += dt;
     const level = this.stageManager.level;

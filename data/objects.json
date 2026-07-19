@@ -189,13 +189,13 @@
   "pine_sapling": {
     "sizeClass": "small",
     "mass": 3,
-    "color": "#2D5016",
+    "color": "#2d5016",
     "model": "pine_sapling",
     "shape": "cone",
     "scale": [
-      0.6,
-      1.2,
-      0.6
+      2,
+      4,
+      2
     ],
     "sfx": "rustle"
   },
@@ -203,14 +203,37 @@
     "sizeClass": "small",
     "mass": 2,
     "color": "#DC2626",
-    "model": "camping_gear",
     "shape": "box",
     "scale": [
-      0.8,
-      0.5,
-      0.8
+      1.2,
+      0.95,
+      1.5
     ],
     "sfx": "flap"
+  },
+  "campfire": {
+    "sizeClass": "small",
+    "mass": 1.5,
+    "color": "#EA580C",
+    "shape": "cylinder",
+    "scale": [
+      0.9,
+      0.55,
+      0.9
+    ],
+    "sfx": "rustle"
+  },
+  "camp_log": {
+    "sizeClass": "small",
+    "mass": 1.2,
+    "color": "#6B4423",
+    "shape": "cylinder",
+    "scale": [
+      0.45,
+      0.35,
+      1.6
+    ],
+    "sfx": "thud"
   },
   "goat": {
     "sizeClass": "small",
@@ -233,9 +256,9 @@
     "model": "pickup_truck",
     "shape": "box",
     "scale": [
-      1.8,
-      1,
-      3.5
+      2.15,
+      1.1944444444444442,
+      4.1805555555555545
     ],
     "sfx": "honk"
   },
@@ -269,7 +292,6 @@
     "sizeClass": "medium",
     "mass": 5,
     "color": "#92400E",
-    "model": "picnic_table",
     "shape": "box",
     "scale": [
       1.5,

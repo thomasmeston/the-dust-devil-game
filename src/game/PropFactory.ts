@@ -971,6 +971,208 @@ export function createSolarFarmMesh(color: string, scale: [number, number, numbe
   return group;
 }
 
+/** A-frame camping tent — Kenney Survival Kit–inspired procedural mesh (CC0 reference). */
+export function createAFrameTentMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const canvas = new THREE.MeshToonMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide });
+  const canvasDark = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#292524'), 0.32),
+    side: THREE.DoubleSide,
+  });
+  const canvasLight = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#FEF3C7'), 0.28),
+    side: THREE.DoubleSide,
+  });
+
+  const ridgeH = sy * 0.92;
+  const halfW = sx * 0.48;
+  const halfD = sz * 0.46;
+  const wallDepth = halfD * 2;
+
+  const makePanelShape = (left: boolean): THREE.Shape => {
+    const shape = new THREE.Shape();
+    if (left) {
+      shape.moveTo(-halfW, 0);
+      shape.lineTo(0, ridgeH);
+      shape.lineTo(0, 0);
+    } else {
+      shape.moveTo(0, 0);
+      shape.lineTo(0, ridgeH);
+      shape.lineTo(halfW, 0);
+    }
+    shape.closePath();
+    return shape;
+  };
+
+  const panelGeo = (left: boolean) =>
+    new THREE.ExtrudeGeometry(makePanelShape(left), { depth: wallDepth, bevelEnabled: false });
+
+  const leftPanel = new THREE.Mesh(panelGeo(true), canvas);
+  leftPanel.position.z = -halfD;
+  group.add(leftPanel);
+
+  const rightPanel = new THREE.Mesh(panelGeo(false), canvasDark);
+  rightPanel.position.z = -halfD;
+  group.add(rightPanel);
+
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.04, ridgeH * 0.7, wallDepth * 0.92), canvasDark);
+  backWall.position.set(0, ridgeH * 0.35, -halfD + wallDepth * 0.04);
+  group.add(backWall);
+
+  const frontFlap = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.32, ridgeH * 0.5, sz * 0.04), canvasLight);
+  frontFlap.position.set(0, ridgeH * 0.25, halfD - sz * 0.02);
+  frontFlap.rotation.x = -0.3;
+  group.add(frontFlap);
+
+  enablePropShadows(group);
+
+  const bounds = new THREE.Box3().setFromObject(group);
+  group.position.y -= bounds.min.y;
+
+  return group;
+}
+
+/** Stone-ring campfire with crossed logs and low-poly flames. */
+export function createCampfireMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const rockMat = new THREE.MeshToonMaterial({ color: '#78716C' });
+  const rockDark = new THREE.MeshToonMaterial({ color: '#57534E' });
+  const logMat = new THREE.MeshToonMaterial({ color: '#5C4033' });
+  const emberMat = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const flameMat = new THREE.MeshToonMaterial({ color: '#FBBF24' });
+  const flameHot = new THREE.MeshToonMaterial({ color: '#F97316' });
+
+  for (let i = 0; i < 9; i++) {
+    const angle = (i / 9) * Math.PI * 2;
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(sx * (0.09 + (i % 3) * 0.015), 0),
+      i % 2 === 0 ? rockMat : rockDark
+    );
+    rock.position.set(
+      Math.cos(angle) * sx * 0.42,
+      sy * 0.14,
+      Math.sin(angle) * sz * 0.42
+    );
+    rock.scale.set(1.05, 0.55 + (i % 2) * 0.15, 1);
+    rock.rotation.y = angle;
+    group.add(rock);
+  }
+
+  const logGeo = new THREE.CylinderGeometry(sx * 0.055, sx * 0.065, sx * 0.52, 5);
+  for (const rot of [0.55, -0.55, 0.15] as const) {
+    const log = new THREE.Mesh(logGeo, logMat);
+    log.rotation.z = Math.PI / 2;
+    log.rotation.y = rot;
+    log.position.y = sy * 0.16;
+    group.add(log);
+  }
+
+  const ash = new THREE.Mesh(
+    new THREE.CylinderGeometry(sx * 0.2, sx * 0.24, sy * 0.07, 7),
+    emberMat
+  );
+  ash.position.y = sy * 0.1;
+  group.add(ash);
+
+  const flameSpecs: [number, number, number, number, number][] = [
+    [0, sy * 0.42, 0, sx * 0.11, sy * 0.48],
+    [-sx * 0.1, sy * 0.34, sz * 0.04, sx * 0.08, sy * 0.38],
+    [sx * 0.09, sy * 0.36, -sz * 0.03, sx * 0.09, sy * 0.42],
+  ];
+  for (let i = 0; i < flameSpecs.length; i++) {
+    const [fx, fy, fz, fr, fh] = flameSpecs[i];
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(fr, fh, 4),
+      i === 0 ? flameHot : flameMat
+    );
+    flame.position.set(fx, fy, fz);
+    flame.rotation.y = i * 1.2;
+    group.add(flame);
+  }
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Wooden picnic table with paired benches. */
+export function createPicnicTableMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const wood = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const woodDark = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#292524'), 0.38),
+  });
+
+  const legH = sy * 0.42;
+  const legGeo = new THREE.BoxGeometry(sx * 0.07, legH, sz * 0.07);
+  const tableLegs: [number, number][] = [
+    [-sx * 0.38, -sz * 0.18],
+    [sx * 0.38, -sz * 0.18],
+    [-sx * 0.38, sz * 0.18],
+    [sx * 0.38, sz * 0.18],
+  ];
+  for (const [lx, lz] of tableLegs) {
+    const leg = new THREE.Mesh(legGeo, woodDark);
+    leg.position.set(lx, legH * 0.5, lz);
+    group.add(leg);
+  }
+
+  const top = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.96, sy * 0.08, sz * 0.42), wood);
+  top.position.y = legH + sy * 0.04;
+  group.add(top);
+
+  const benchH = legH * 0.52;
+  const benchLegGeo = new THREE.BoxGeometry(sx * 0.05, benchH, sz * 0.05);
+  for (const bz of [-sz * 0.38, sz * 0.38]) {
+    for (const bx of [-sx * 0.34, sx * 0.34]) {
+      const leg = new THREE.Mesh(benchLegGeo, woodDark);
+      leg.position.set(bx, benchH * 0.5, bz);
+      group.add(leg);
+    }
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.88, sy * 0.06, sz * 0.11), wood);
+    bench.position.set(0, benchH + sy * 0.03, bz);
+    group.add(bench);
+  }
+
+  enablePropShadows(group);
+  return group;
+}
+
+/** Split log bench for campsite seating. */
+export function createCampLogMesh(color: string, scale: [number, number, number]): THREE.Group {
+  const group = new THREE.Group();
+  const [sx, sy, sz] = scale;
+  const bark = new THREE.MeshToonMaterial({ color: new THREE.Color(color) });
+  const barkDark = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#292524'), 0.45),
+  });
+  const woodEnd = new THREE.MeshToonMaterial({
+    color: new THREE.Color(color).lerp(new THREE.Color('#D6D3D1'), 0.35),
+  });
+
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(sy * 0.42, sy * 0.46, sz, 7), bark);
+  log.rotation.x = Math.PI / 2;
+  log.position.y = sy * 0.42;
+  group.add(log);
+
+  const flat = new THREE.Mesh(new THREE.BoxGeometry(sz * 0.92, sy * 0.08, sx * 0.78), barkDark);
+  flat.position.set(0, sy * 0.78, 0);
+  group.add(flat);
+
+  for (const side of [-1, 1] as const) {
+    const end = new THREE.Mesh(new THREE.CircleGeometry(sy * 0.44, 8), woodEnd);
+    end.rotation.y = Math.PI / 2;
+    end.position.set(0, sy * 0.42, side * sz * 0.5);
+    end.rotation.x = Math.PI / 2;
+    group.add(end);
+  }
+
+  enablePropShadows(group);
+  return group;
+}
+
 function createCustomPropMesh(type: string, def: ObjectDef): THREE.Group | null {
   if (type === 'goat') return createSheepMesh(def.color, def.scale);
   if (type === 'tortoise') return createTortoiseMesh(def.color, def.scale);
@@ -984,6 +1186,10 @@ function createCustomPropMesh(type: string, def: ObjectDef): THREE.Group | null 
   if (type === 'joshua_tree') return createJoshuaTreeMesh(def.color, def.scale);
   if (type === 'wood_fence') return createWoodFenceMesh(def.color, def.scale);
   if (type === 'solar_farm') return createSolarFarmMesh(def.color, def.scale);
+  if (type === 'camping_gear') return createAFrameTentMesh(def.color, def.scale);
+  if (type === 'campfire') return createCampfireMesh(def.color, def.scale);
+  if (type === 'camp_log') return createCampLogMesh(def.color, def.scale);
+  if (type === 'picnic_table') return createPicnicTableMesh(def.color, def.scale);
   return null;
 }
 

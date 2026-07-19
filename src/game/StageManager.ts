@@ -11,6 +11,7 @@ import {
 import { SpatialGrid } from './SpatialGrid';
 import { groundTextureLoader } from './GroundTextureLoader';
 import { generateLowBoulderRidgePlacements } from './BorderMountains';
+import { createForestRiver, getForestRiverDecorPlacements, isInForestRiver, updateForestRiver } from './ForestRiver';
 import { playableHalfExtents } from '../utils/bounds';
 
 export class StageManager {
@@ -22,6 +23,9 @@ export class StageManager {
   playableHalfZ = 0;
   private grid: SpatialGrid;
   private scene: THREE.Scene;
+  private forestRiverGroup: THREE.Group | null = null;
+  private forestRiverTime = 0;
+  private activeStageId: StageId | null = null;
 
   constructor(scene: THREE.Scene, grid: SpatialGrid) {
     this.scene = scene;
@@ -43,6 +47,7 @@ export class StageManager {
   ): Promise<void> {
     this.clear();
     this.level = level;
+    this.activeStageId = stageId;
     resetPropIds();
 
     const palette = BIOME_PALETTES[stageId];
@@ -87,9 +92,23 @@ export class StageManager {
     this.playableHalfZ = halfZ;
     // this.scene.add(createBorderMountains(stageId, level.width, level.depth)); // Temporarily removed for boundary testing
 
+    // River first so prop placement can avoid the water corridor
+    if (stageId === 'forest') {
+      this.forestRiverGroup = await createForestRiver(level.width, level.depth);
+      this.forestRiverTime = 0;
+      this.scene.add(this.forestRiverGroup);
+    }
+
     for (const placed of level.props) {
       const def = objectDefs[placed.type];
       if (!def) continue;
+      if (
+        stageId === 'forest' &&
+        isForestRiverBlockedType(placed.type) &&
+        isInForestRiver(placed.x, placed.z)
+      ) {
+        continue;
+      }
       const prop = await createAbsorbableProp(
         placed.type,
         def,
@@ -107,6 +126,11 @@ export class StageManager {
 
     if (stageId === 'mountain') {
       await this.spawnMountainRidgeRocks(objectDefs);
+    }
+
+    if (stageId === 'forest') {
+      await this.spawnForestRiverProps(objectDefs);
+      await this.spawnForestPines(objectDefs, level.width, level.depth);
     }
 
     this.addBiomeDecor(stageId, level.width, level.depth);
@@ -198,6 +222,10 @@ export class StageManager {
         0.12,
         (Math.random() - 0.5) * depth * 0.9
       );
+      if (stageId === 'forest' && isInForestRiver(mesh.position.x, mesh.position.z)) {
+        i--;
+        continue;
+      }
       mesh.rotation.y = Math.random() * Math.PI * 2;
       if (stageId === 'forest') mesh.position.y = 0.2;
       group.add(mesh);
@@ -269,6 +297,84 @@ export class StageManager {
     }
   }
 
+  update(dt: number): void {
+    if (this.activeStageId === 'forest' && this.forestRiverGroup) {
+      this.forestRiverTime += dt;
+      updateForestRiver(this.forestRiverGroup, this.forestRiverTime);
+    }
+  }
+
+  private async spawnForestRiverProps(
+    objectDefs: Record<string, ObjectDef>
+  ): Promise<void> {
+    // Only rocks in the channel — never camping props
+    const rockDef = objectDefs.rock_small;
+    if (!rockDef) return;
+
+    const decor = getForestRiverDecorPlacements();
+    for (const p of decor.rocks) {
+      const prop = await createAbsorbableProp('rock_small', rockDef, p.x, p.z, 0, p.rotation);
+      this.props.push(prop);
+      this.scene.add(prop.mesh);
+      this.grid.insert(prop);
+    }
+  }
+
+  /** Dense pine cover on dry land around the river corridor. */
+  private async spawnForestPines(
+    objectDefs: Record<string, ObjectDef>,
+    width: number,
+    depth: number
+  ): Promise<void> {
+    const pineDef = objectDefs.pine_sapling;
+    const smallDef = objectDefs.tree_small;
+    const largeDef = objectDefs.tree_large;
+    if (!pineDef && !smallDef && !largeDef) return;
+
+    const halfW = width * 0.46;
+    const halfD = depth * 0.46;
+    const targetCount = 240;
+    let placed = 0;
+    let attempts = 0;
+
+    while (placed < targetCount && attempts < targetCount * 10) {
+      attempts++;
+      const x = (Math.random() * 2 - 1) * halfW;
+      const z = (Math.random() * 2 - 1) * halfD;
+      if (isInForestRiver(x, z)) continue;
+      // Narrow clear lane near the player path / exit
+      if (Math.abs(z) < 1.6 && Math.abs(x) > 10) continue;
+
+      const roll = Math.random();
+      let type = 'pine_sapling';
+      let def = pineDef;
+      if (roll > 0.82 && largeDef) {
+        type = 'tree_large';
+        def = largeDef;
+      } else if (roll > 0.55 && smallDef) {
+        type = 'tree_small';
+        def = smallDef;
+      } else if (!pineDef) {
+        def = smallDef ?? largeDef;
+        type = smallDef ? 'tree_small' : 'tree_large';
+      }
+      if (!def) continue;
+
+      const prop = await createAbsorbableProp(
+        type,
+        def,
+        x,
+        z,
+        0,
+        Math.random() * Math.PI * 2
+      );
+      this.props.push(prop);
+      this.scene.add(prop.mesh);
+      this.grid.insert(prop);
+      placed++;
+    }
+  }
+
   async spawnRandomProp(
     type: string,
     def: ObjectDef
@@ -278,8 +384,20 @@ export class StageManager {
     const margin = 3;
     const halfX = Math.max(1, this.playableHalfX - margin);
     const halfZ = Math.max(1, this.playableHalfZ - margin);
-    const x = (Math.random() * 2 - 1) * halfX;
-    const z = (Math.random() * 2 - 1) * halfZ;
+    let x = 0;
+    let z = 0;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      x = (Math.random() * 2 - 1) * halfX;
+      z = (Math.random() * 2 - 1) * halfZ;
+      if (
+        this.activeStageId === 'forest' &&
+        isForestRiverBlockedType(type) &&
+        isInForestRiver(x, z)
+      ) {
+        continue;
+      }
+      break;
+    }
     const rotation = Math.random() * Math.PI * 2;
 
     const prop = await createAbsorbableProp(type, def, x, z, 0, rotation);
@@ -324,6 +442,22 @@ export class StageManager {
         }
       });
     }
+    const river = this.scene.getObjectByName('forestRiver');
+    if (river) {
+      this.scene.remove(river);
+      const disposedTextures = new Set<THREE.Texture>();
+      river.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          const mat = child.material;
+          if (Array.isArray(mat)) mat.forEach((m) => disposeRiverMaterial(m, disposedTextures));
+          else disposeRiverMaterial(mat, disposedTextures);
+        }
+      });
+    }
+    this.forestRiverGroup = null;
+    this.forestRiverTime = 0;
+    this.activeStageId = null;
     for (const prop of this.props) {
       this.scene.remove(prop.mesh);
       prop.mesh.traverse((child) => {
@@ -345,4 +479,45 @@ export class StageManager {
     this.playableHalfX = 0;
     this.playableHalfZ = 0;
   }
+}
+
+const FOREST_RIVER_BLOCKED_TYPES = new Set([
+  'camping_gear',
+  'campfire',
+  'camp_log',
+  'picnic_table',
+  'pine_sapling',
+  'tree_small',
+  'tree_large',
+]);
+
+function isForestRiverBlockedType(type: string): boolean {
+  return FOREST_RIVER_BLOCKED_TYPES.has(type);
+}
+
+function disposeRiverMaterial(
+  material: THREE.Material,
+  disposedTextures?: Set<THREE.Texture>
+): void {
+  const disposeTex = (tex?: THREE.Texture | null) => {
+    if (!tex) return;
+    if (disposedTextures) {
+      if (disposedTextures.has(tex)) return;
+      disposedTextures.add(tex);
+    }
+    tex.dispose();
+  };
+
+  if (material instanceof THREE.ShaderMaterial) {
+    for (const uniform of Object.values(material.uniforms)) {
+      if (uniform.value instanceof THREE.Texture) disposeTex(uniform.value);
+    }
+  } else if (
+    material instanceof THREE.MeshStandardMaterial ||
+    material instanceof THREE.MeshLambertMaterial
+  ) {
+    disposeTex(material.map);
+    disposeTex(material.normalMap);
+  }
+  material.dispose();
 }

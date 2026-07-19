@@ -12,6 +12,9 @@ export class ParticleSwirl {
   private fleeTrailIndex = 0;
   private dirtTrailPool: THREE.Mesh[] = [];
   private dirtTrailIndex = 0;
+  private splashPool: THREE.Mesh[] = [];
+  private splashIndex = 0;
+  private splashCooldown = 0;
   private fleeTrailCooldowns = new Map<number, number>();
 
   constructor(scene: THREE.Scene, maxDebris = 30) {
@@ -73,6 +76,20 @@ export class ParticleSwirl {
       m.rotation.x = -Math.PI / 2;
       this.scene.add(m);
       this.dirtTrailPool.push(m);
+    }
+
+    const splashGeo = new THREE.SphereGeometry(0.08, 5, 4);
+    for (let i = 0; i < 36; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xb8e8ff,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      const m = new THREE.Mesh(splashGeo, mat);
+      m.visible = false;
+      this.scene.add(m);
+      this.splashPool.push(m);
     }
   }
 
@@ -281,6 +298,99 @@ export class ParticleSwirl {
     }
   }
 
+  /**
+   * Water droplets kicked up when the dust devil crosses the river.
+   * Call every frame while over water; internal cooldown paces the bursts.
+   */
+  spawnWaterSplash(
+    pos: THREE.Vector3,
+    velX: number,
+    velZ: number,
+    dt: number,
+    playerRadius = 0.4,
+    waterY = 0.12
+  ): void {
+    this.splashCooldown -= dt;
+    const speed = Math.sqrt(velX * velX + velZ * velZ);
+    if (this.splashCooldown > 0) return;
+
+    const intensity = Math.max(0.35, Math.min(1.4, 0.4 + speed * 0.12 + playerRadius * 0.15));
+    this.splashCooldown = speed > 3 ? 0.04 : 0.07;
+
+    const dropCount = speed > 4 ? 5 : speed > 1.5 ? 3 : 2;
+    const nx = speed > 0.1 ? velX / speed : 0;
+    const nz = speed > 0.1 ? velZ / speed : 0;
+
+    for (let i = 0; i < dropCount; i++) {
+      const m = this.splashPool[this.splashIndex % this.splashPool.length];
+      this.splashIndex++;
+      const mat = m.material as THREE.MeshBasicMaterial;
+      m.visible = true;
+
+      const side = (Math.random() - 0.5) * (0.5 + playerRadius * 0.8);
+      m.position.set(
+        pos.x + (Math.random() - 0.5) * 0.35 - nx * 0.1,
+        waterY + 0.04 + Math.random() * 0.08,
+        pos.z + (Math.random() - 0.5) * 0.35 - nz * 0.1
+      );
+      const scale = (0.35 + Math.random() * 0.55) * intensity;
+      m.scale.setScalar(scale);
+      mat.color.setHSL(0.55 + Math.random() * 0.06, 0.55, 0.78 + Math.random() * 0.12);
+      mat.opacity = 0.75;
+
+      const angle = Math.random() * Math.PI * 2;
+      const outSpeed = (1.2 + Math.random() * 2.4) * intensity;
+      let vx = Math.cos(angle) * outSpeed + nx * speed * 0.15;
+      let vz = Math.sin(angle) * outSpeed + nz * speed * 0.15;
+      // Bias a bit sideways from travel for a spray wake
+      vx += -nz * side * 2;
+      vz += nx * side * 2;
+      let vy = (2.2 + Math.random() * 3.2) * intensity;
+      let life = 0.35 + Math.random() * 0.25;
+
+      const animate = () => {
+        life -= 0.016;
+        m.position.x += vx * 0.016;
+        m.position.z += vz * 0.016;
+        m.position.y += vy * 0.016;
+        vy -= 9.5 * 0.016;
+        m.scale.multiplyScalar(0.985);
+        mat.opacity = Math.max(0, life * 1.8);
+        if (life > 0 && m.position.y > waterY - 0.05) {
+          requestAnimationFrame(animate);
+        } else {
+          mat.opacity = 0;
+          m.visible = false;
+        }
+      };
+      animate();
+    }
+
+    // Flat foam ring on the water surface
+    const foam = this.splashPool[this.splashIndex % this.splashPool.length];
+    this.splashIndex++;
+    const foamMat = foam.material as THREE.MeshBasicMaterial;
+    foam.visible = true;
+    foam.position.set(pos.x, waterY + 0.02, pos.z);
+    foam.scale.set(0.8 * intensity, 0.15, 0.8 * intensity);
+    foamMat.color.set(0xe8f6ff);
+    foamMat.opacity = 0.55;
+    let foamLife = 0.4;
+    const fadeFoam = () => {
+      foamLife -= 0.016;
+      foam.scale.x *= 1.04;
+      foam.scale.z *= 1.04;
+      foamMat.opacity = foamLife * 1.1;
+      if (foamLife > 0) requestAnimationFrame(fadeFoam);
+      else {
+        foamMat.opacity = 0;
+        foam.visible = false;
+        foam.scale.setScalar(1);
+      }
+    };
+    fadeFoam();
+  }
+
   spawnSweat(scene: THREE.Scene, pos: THREE.Vector3): void {
     const geo = new THREE.IcosahedronGeometry(0.045, 1);
     const mat = new THREE.MeshBasicMaterial({
@@ -349,6 +459,11 @@ export class ParticleSwirl {
       this.scene.remove(t);
       t.geometry.dispose();
       (t.material as THREE.Material).dispose();
+    }
+    for (const s of this.splashPool) {
+      this.scene.remove(s);
+      s.geometry.dispose();
+      (s.material as THREE.Material).dispose();
     }
   }
 }

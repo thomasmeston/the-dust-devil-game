@@ -36,6 +36,8 @@ export class DustDevil {
   constructor() {
     this.vortex = new DustDevilVortex();
     this.group.add(this.vortex.group);
+    // Draw after transparent river water so the vortex never sinks under it
+    this.group.renderOrder = 5;
   }
 
   get pullRadius(): number {

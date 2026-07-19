@@ -12,10 +12,12 @@ export interface DevPlayerBindings {
 export interface DevObjectEditorBindings {
   getObjectTypes: () => string[];
   getObjectDef: (type: string) => ObjectDef | undefined;
+  getOriginalObjectDef?: (type: string) => ObjectDef | undefined;
   onObjectDefChange: (
     type: string,
     patch: { color?: string; scale?: [number, number, number] }
   ) => void;
+  onRevertToOriginal?: (type: string) => void;
   onSpawnRandom: (type: string) => void;
   onSaveToSource?: () => Promise<{ ok: boolean; message: string }>;
 }
@@ -61,9 +63,12 @@ export class DevPanel {
   private scaleXValue: HTMLSpanElement;
   private scaleYValue: HTMLSpanElement;
   private scaleZValue: HTMLSpanElement;
+  private keepRatioCheckbox: HTMLInputElement;
+  private revertBtn: HTMLButtonElement;
   private saveBtn: HTMLButtonElement;
   private saveStatus: HTMLParagraphElement;
   private objectEmptyHint: HTMLParagraphElement;
+  private lastScale: [number, number, number] = [1, 1, 1];
   private open = false;
   private activeTab: DevTab = 'controls';
   private syncingObjectEditor = false;
@@ -143,6 +148,12 @@ export class DevPanel {
             <label class="dev-panel__label" for="dev-object-color">Color</label>
             <input type="color" id="dev-object-color" class="dev-panel__color" value="#ffffff" />
           </div>
+          <div class="dev-panel__section dev-panel__section--row">
+            <label class="dev-panel__check">
+              <input type="checkbox" id="dev-keep-ratio" class="dev-panel__checkbox" />
+              Keep ratio
+            </label>
+          </div>
           <div class="dev-panel__section">
             <label class="dev-panel__label" for="dev-scale-x">Width (X)</label>
             <div class="dev-panel__volume-row">
@@ -168,6 +179,7 @@ export class DevPanel {
             </div>
           </div>
           <p class="dev-panel__hint">Changes apply to all props of this type on the level.</p>
+          <button type="button" class="dev-panel__revert">Revert to original</button>
           <button type="button" class="dev-panel__save">Save to objects.json</button>
           <p class="dev-panel__status dev-panel__status--idle"></p>
         </div>
@@ -203,6 +215,8 @@ export class DevPanel {
     this.scaleXValue = this.el.querySelector('.dev-panel__scale-x-value')!;
     this.scaleYValue = this.el.querySelector('.dev-panel__scale-y-value')!;
     this.scaleZValue = this.el.querySelector('.dev-panel__scale-z-value')!;
+    this.keepRatioCheckbox = this.el.querySelector('#dev-keep-ratio')!;
+    this.revertBtn = this.el.querySelector('.dev-panel__revert')!;
     this.saveBtn = this.el.querySelector('.dev-panel__save')!;
     this.saveStatus = this.el.querySelector('.dev-panel__status')!;
     this.objectEmptyHint = this.el.querySelector('.dev-panel__hint--empty')!;
@@ -228,10 +242,11 @@ export class DevPanel {
     this.sfxSlider.addEventListener('input', () => this.onSfxInput());
     this.objectSelect.addEventListener('change', () => this.syncObjectEditorFromSelection());
     this.colorInput.addEventListener('input', () => this.onObjectEditorInput());
-    this.scaleXSlider.addEventListener('input', () => this.onObjectEditorInput());
-    this.scaleYSlider.addEventListener('input', () => this.onObjectEditorInput());
-    this.scaleZSlider.addEventListener('input', () => this.onObjectEditorInput());
+    this.scaleXSlider.addEventListener('input', () => this.onScaleInput(0));
+    this.scaleYSlider.addEventListener('input', () => this.onScaleInput(1));
+    this.scaleZSlider.addEventListener('input', () => this.onScaleInput(2));
     this.spawnBtn.addEventListener('click', () => this.onSpawnClick());
+    this.revertBtn.addEventListener('click', () => this.onRevertClick());
     this.saveBtn.addEventListener('click', () => void this.onSaveClick());
 
     if (!import.meta.env.DEV || !this.objectEditor?.onSaveToSource) {
@@ -315,9 +330,11 @@ export class DevPanel {
 
     this.objectSelect.disabled = !hasTypes;
     this.colorInput.disabled = !hasTypes;
+    this.keepRatioCheckbox.disabled = !hasTypes;
     this.scaleXSlider.disabled = !hasTypes;
     this.scaleYSlider.disabled = !hasTypes;
     this.scaleZSlider.disabled = !hasTypes;
+    this.revertBtn.disabled = !hasTypes;
     this.spawnBtn.disabled = !hasTypes;
     this.objectEmptyHint.classList.toggle('dev-panel__hint--hidden', hasTypes);
 
@@ -357,26 +374,81 @@ export class DevPanel {
     this.scaleXValue.textContent = def.scale[0].toFixed(2);
     this.scaleYValue.textContent = def.scale[1].toFixed(2);
     this.scaleZValue.textContent = def.scale[2].toFixed(2);
+    this.lastScale = [...def.scale];
     this.syncingObjectEditor = false;
+  }
+
+  private clampScale(value: number): number {
+    return Math.min(DEV_SCALE_MAX, Math.max(DEV_SCALE_MIN, value));
+  }
+
+  private setScaleSliders(scale: [number, number, number]): void {
+    this.scaleXSlider.value = String(scale[0]);
+    this.scaleYSlider.value = String(scale[1]);
+    this.scaleZSlider.value = String(scale[2]);
+    this.scaleXValue.textContent = scale[0].toFixed(2);
+    this.scaleYValue.textContent = scale[1].toFixed(2);
+    this.scaleZValue.textContent = scale[2].toFixed(2);
+  }
+
+  private onScaleInput(axis: 0 | 1 | 2): void {
+    if (this.syncingObjectEditor || !this.objectEditor) return;
+
+    const sliders = [this.scaleXSlider, this.scaleYSlider, this.scaleZSlider];
+    const newVal = Number(sliders[axis].value);
+    let scale: [number, number, number];
+
+    if (this.keepRatioCheckbox.checked) {
+      const prev = this.lastScale[axis];
+      const ratio = prev > 0 ? newVal / prev : 1;
+      scale = [
+        this.clampScale(this.lastScale[0] * ratio),
+        this.clampScale(this.lastScale[1] * ratio),
+        this.clampScale(this.lastScale[2] * ratio),
+      ];
+      this.syncingObjectEditor = true;
+      this.setScaleSliders(scale);
+      this.syncingObjectEditor = false;
+    } else {
+      scale = [
+        Number(this.scaleXSlider.value),
+        Number(this.scaleYSlider.value),
+        Number(this.scaleZSlider.value),
+      ];
+      this.setScaleSliders(scale);
+    }
+
+    this.lastScale = [...scale];
+    this.applyObjectEditorChange(scale);
   }
 
   private onObjectEditorInput(): void {
     if (this.syncingObjectEditor || !this.objectEditor) return;
 
-    const type = this.objectSelect.value;
     const scale: [number, number, number] = [
       Number(this.scaleXSlider.value),
       Number(this.scaleYSlider.value),
       Number(this.scaleZSlider.value),
     ];
-    this.scaleXValue.textContent = scale[0].toFixed(2);
-    this.scaleYValue.textContent = scale[1].toFixed(2);
-    this.scaleZValue.textContent = scale[2].toFixed(2);
+    this.lastScale = [...scale];
+    this.applyObjectEditorChange(scale);
+  }
 
+  private applyObjectEditorChange(scale: [number, number, number]): void {
+    if (!this.objectEditor) return;
+    const type = this.objectSelect.value;
     this.objectEditor.onObjectDefChange(type, {
       color: this.colorInput.value,
       scale,
     });
+  }
+
+  private onRevertClick(): void {
+    if (!this.objectEditor?.onRevertToOriginal) return;
+    const type = this.objectSelect.value;
+    this.objectEditor.onRevertToOriginal(type);
+    this.syncObjectEditorFromSelection();
+    this.setSaveStatus('Reverted to original values.', 'ok');
   }
 
   private onSpawnClick(): void {
@@ -515,6 +587,22 @@ export class DevPanel {
       .dev-panel__pane--hidden { display: none; }
       .dev-panel__section { margin-bottom: 12px; }
       .dev-panel__section:last-child { margin-bottom: 0; }
+      .dev-panel__section--row { margin-bottom: 8px; }
+      .dev-panel__check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.85);
+        cursor: pointer;
+      }
+      .dev-panel__checkbox {
+        width: 14px;
+        height: 14px;
+        accent-color: #fbbf24;
+        cursor: pointer;
+      }
       .dev-panel__label {
         display: block;
         font-size: 0.72rem;
@@ -569,9 +657,10 @@ export class DevPanel {
         cursor: pointer;
       }
       .dev-panel__jump:active { transform: scale(0.98); }
+      .dev-panel__revert,
       .dev-panel__save {
         width: 100%;
-        margin-top: 10px;
+        margin-top: 8px;
         padding: 7px 10px;
         font-family: inherit;
         font-size: 0.82rem;
@@ -582,11 +671,14 @@ export class DevPanel {
         border-radius: 6px;
         cursor: pointer;
       }
+      .dev-panel__revert:disabled,
       .dev-panel__save:disabled {
         opacity: 0.55;
         cursor: wait;
       }
+      .dev-panel__revert:active:not(:disabled),
       .dev-panel__save:active:not(:disabled) { transform: scale(0.98); }
+      .dev-panel__save { margin-top: 6px; }
       .dev-panel__status {
         margin: 8px 0 0;
         min-height: 1rem;

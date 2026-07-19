@@ -18,7 +18,7 @@ export type StageId = (typeof STAGE_ORDER)[number];
 export const STAGE_TITLES: Record<StageId, string> = {
   desert: 'A Little Spin',
   mountain: 'Upward Spiral',
-  forest: 'Rustle & Hum',
+  forest: 'Go with the Flow',
   suburbs: 'Almost There',
   downtown: 'Big Enough',
 };
@@ -26,7 +26,7 @@ export const STAGE_TITLES: Record<StageId, string> = {
 export const STAGE_FLAVOR: Record<StageId, string> = {
   desert: 'The wide open desert awaits…',
   mountain: 'Climb toward the dream.',
-  forest: 'Rustle through the green.',
+  forest: 'Go with the flow.',
   suburbs: 'Almost there. Deep breath.',
   downtown: 'The city skyline calls.',
 };
